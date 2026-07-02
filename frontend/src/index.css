@@ -1,0 +1,116 @@
+:root {
+  --primary: #1abc9c;
+  --primary-glow: rgba(26, 188, 156, 0.4);
+  --secondary: #3498db;
+  --secondary-glow: rgba(52, 152, 219, 0.4);
+  --accent: #e67e22;
+  --accent-glow: rgba(230, 126, 34, 0.4);
+  --darkbg: #090d16;
+  --cardbg: rgba(15, 23, 42, 0.55);
+  --cardborder: rgba(255, 255, 255, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Outfit', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background-color: var(--darkbg);
+  color: #f8fafc;
+  overflow-x: hidden;
+  line-height: 1.5;
+}
+
+code, pre {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--darkbg);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
+
+/* Glassmorphism Styles */
+.glass-panel {
+  background: var(--cardbg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--cardborder);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-panel:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 12px 40px 0 rgba(26, 188, 156, 0.15);
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, #f8fafc 30%, var(--primary) 70%, var(--secondary) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.glow-btn {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+  border: none;
+  color: #fff;
+  padding: 10px 24px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: 0 4px 15px var(--primary-glow);
+  transition: all 0.3s ease;
+}
+
+.glow-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(52, 152, 219, 0.5);
+}
+
+.glow-btn:active {
+  transform: translateY(0);
+}
+
+/* Tab Active Styles */
+.tab-btn {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  padding: 10px 16px;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.tab-btn.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+/* Animations */
+@keyframes pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.pulse-glow {
+  animation: pulse 3s infinite ease-in-out;
+}

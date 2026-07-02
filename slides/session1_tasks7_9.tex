@@ -1,0 +1,485 @@
+\documentclass[9pt]{beamer}
+\usetheme{metropolis}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{listings}
+
+% Define color palette matching our project design system
+\definecolor{primary}{HTML}{1abc9c}    % Deep Teal
+\definecolor{secondary}{HTML}{3498db}  % Astro Blue
+\definecolor{darkbg}{HTML}{2c3e50}     % Slate Blue
+\definecolor{accent}{HTML}{e67e22}     % Orange
+
+\setbeamercolor{palette primary}{bg=darkbg, fg=white}
+\setbeamercolor{palette secondary}{bg=primary, fg=white}
+\setbeamercolor{palette tertiary}{bg=secondary, fg=white}
+\setbeamercolor{structure}{fg=primary}
+\setbeamercolor{alerted text}{fg=accent}
+
+\title{Stellar Trace: Host Profiling \& Machine Learning}
+\subtitle{Session 1: Observational Selection \& Non-Parametric Statistics (Tasks 7--9)}
+\author{Astrophysics Mentorship Program}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+% Slide 2: Session Series Roadmap
+\begin{frame}{Session Series Roadmap}
+  \begin{block}{Phase 2 Curriculum Structure}
+    Stellar Trace Phase 2 transitions from the volume-complete universe model of Milestone 1 to real observational data ingestion, classifier training, and physical model fitting:
+  \end{block}
+  \begin{description}
+    \item[Session 1 (Today):] \textbf{Telescopes \& Statistics (Tasks 7--9)}
+      \begin{itemize}
+        \item Task 7: Observational Selection Effects \& Malmquist Bias.
+        \item Task 8: Ingestion, Coordinate Cross-Matching, and SQL WAF Bypass.
+        \item Task 9: 1D vs. 2D Kolmogorov-Smirnov statistical testing.
+      \end{itemize}
+    \item[Session 2:] \textbf{Machine Learning \& Data Leakage (Tasks 10--12)}
+      \begin{itemize}
+        \item Oversampling under strict train-test separation; MLP Classifiers.
+      \end{itemize}
+    \item[Session 3:] \textbf{Rate Fitting \& Physics-Informed nets (Tasks 13--15)}
+      \begin{itemize}
+        \item Bayesian MCMC (Metropolis-Hastings), PINNs, and DTD Convolution.
+      \end{itemize}
+  \end{description}
+\end{frame}
+
+% Slide 3: Session 1 Objectives
+\begin{frame}{Session 1 Objectives}
+  \begin{itemize}
+    \item In \textbf{Milestone 1}, you generated a volume-complete synthetic universe based on galaxy mass functions and star-forming correlations.
+    \item \alert{The Problem:} Real telescope catalogs are not volume-complete. They are limited by the telescope's mirror size, detector sensitivity, and atmospheric dust.
+    \item \textbf{Today's Goals:}
+      \begin{enumerate}
+        \item Mathematically apply telescope sensitivity thresholds (\textbf{Malmquist Bias}) to our mock universe.
+        \item Ingest real Core-Collapse and Type Ia supernova host catalog data.
+        \item Write coordinate cross-matching algorithms to link supernovae to their hosts.
+        \item Query the SDSS spectroscopic database server and bypass firewall restrictions.
+        \item Run 1D and 2D non-parametric statistics to prove that supernovae live in distinct environments.
+      \end{enumerate}
+  \end{itemize}
+\end{frame}
+
+% Slide 4: Section 1 Divider
+\begin{frame}[plain]
+  \vfill
+  \centering
+  \begin{beamercolorbox}[sep=8pt,center,shadow=true,rounded=true]{palette primary}
+    \usebeamerfont{title}\textbf{Section 1: Observational Selection \& Malmquist Bias (Task 7)}
+  \end{beamercolorbox}
+  \vfill
+\end{frame}
+
+% Slide 5: Volume-Complete vs. Flux-Limited Surveys
+\begin{frame}{Volume-Complete vs. Flux-Limited Surveys}
+  To understand real telescope data, we must differentiate between two types of astronomical surveys:
+  \begin{itemize}
+    \item \textbf{Volume-Complete Survey:}
+      Contains every single galaxy within a specified physical volume $V$ (comoving sphere), regardless of how bright they appear. Extremely difficult to achieve because small, faint dwarf galaxies are missed.
+    \item \textbf{Flux-Limited Survey:}
+      Only includes objects whose flux on the sky is higher than the telescope's detector sensitivity threshold:
+      $$f > f_{\text{limit}}$$
+    \item \textbf{SDSS Spectroscopic Limit:}
+      The Sloan Digital Sky Survey spectroscopic catalog is complete down to a limiting apparent magnitude of $m_r < 23.5$ in the $r$-band. Any galaxy fainter than this is ignored.
+  \end{itemize}
+\end{frame}
+
+% Slide 6: The Physics of Malmquist Bias
+\begin{frame}{The Physics of Malmquist Bias}
+  \begin{block}{Light Propagation}
+    The flux of light received on Earth scales inversely with the square of the luminosity distance $D_L$:
+    $$f = \frac{L}{4\pi D_L^2}$$
+  \end{block}
+  \begin{itemize}
+    \item For a telescope with a fixed flux limit $f_{\text{limit}}$, the minimum detectable luminosity increases quadratically with distance:
+      $$L_{\text{min}}(z) = 4\pi D_L(z)^2 f_{\text{limit}}$$
+    \item At low redshifts (close to us), we can detect both massive, bright galaxies and tiny, faint dwarf galaxies.
+    \item At high redshifts (far away), dwarf galaxies fall below the detection limit and disappear from our survey.
+    \item \alert{Malmquist Bias:} The systematic selection of high-luminosity objects at large distances. If uncorrected, we would falsely conclude that galaxies in the distant universe are systematically more massive and active than today.
+  \end{itemize}
+\end{frame}
+
+% Slide 7: Mathematical Model Derivation: Step 1 & 2
+\begin{frame}{Mathematical Model Derivation: Step 1 \& 2}
+  To apply the survey limit ($m_r < 23.5$) to our mock galaxies, we must convert their simulated properties ($M_\star, \text{sSFR}, z$) into $r$-band apparent magnitude ($m_r$):
+  \begin{enumerate}
+    \item \textbf{Step 1: Specific Star Formation Rate (sSFR) to rest-frame $(g-r)$ color:}
+      Young, massive stars are hot and blue; old, low-mass stars are cool and red. Active star-forming galaxies (high sSFR) are blue, and quenched galaxies are red:
+      $$(g-r) = \text{clip}(0.5 - 0.25 \cdot (\text{sSFR} + 10), -0.1, 1.0) + \eta$$
+      where $\eta \sim \mathcal{N}(0, 0.08)$ represents intrinsic astrophysical scatter.
+    \item \textbf{Step 2: Bell \& de Jong (2001) Mass-to-Light ($M/L$) ratio in $g$-band:}
+      Stellar population synthesis models relate color directly to $M/L$ in the $g$-band:
+      $$\log_{10}(M/L)_g = 1.5 \cdot (g-r) - 0.7$$
+  \end{enumerate}
+\end{frame}
+
+% Slide 7b: Detailed Derivation: Translation from g-band to r-band
+\begin{frame}{Detailed Derivation: Translating $M/L$ from $g$-band to $r$-band}
+  How do we find the Mass-to-Light ratio in the $r$-band, $(M/L)_r$?
+  \begin{itemize}
+    \item The rest-frame color $(g-r)$ is defined as the difference in absolute magnitudes:
+      $$(g-r) = M_g - M_r$$
+    \item Substituting absolute magnitudes in Solar units, this relates to the luminosity ratio:
+      $$(g-r) = -2.5 \log_{10} \left( \frac{L_g / L_{\odot, g}}{L_r / L_{\odot, r}} \right) \implies \log_{10} \left( \frac{\mathcal{L}_g}{\mathcal{L}_r} \right) = -\frac{g-r}{2.5}$$
+    \item Since the physical stellar mass $M_\star$ of a galaxy is identical in both bands:
+      $$\frac{(M/L)_r}{(M/L)_g} = \frac{M_\star / \mathcal{L}_r}{M_\star / \mathcal{L}_g} = \frac{\mathcal{L}_g}{\mathcal{L}_r}$$
+    \item Taking the logarithm of both sides gives the translation formula:
+      $$\log_{10}(M/L)_r = \log_{10}(M/L)_g - \frac{g-r}{2.5}$$
+  \end{itemize}
+\end{frame}
+
+% Slide 8: Mathematical Model Derivation: Step 3
+\begin{frame}{Mathematical Model Derivation: Step 3}
+  \begin{enumerate}
+    \setcounter{enumi}{2}
+    \item \textbf{Step 3: Absolute Magnitude ($M_r$):}
+      Absolute magnitude represents the galaxy's intrinsic luminosity. We calculate $M_r$ relative to the Solar absolute magnitude in the $r$-band ($M_{\odot, r} = 4.65$):
+      $$M_r = M_{\odot, r} - 2.5 \log_{10} \left( \frac{L_r}{L_{\odot, r}} \right)$$
+    \item By definition of the mass-to-light ratio, the luminosity in Solar units is:
+      $$\frac{L_r}{L_{\odot, r}} = \frac{M_\star}{(M/L)_r}$$
+    \item Substituting this yields our absolute magnitude formula:
+      $$M_r = 4.65 - 2.5 \cdot \left( \log_{10} M_\star - \log_{10}(M/L)_r \right)$$
+      where $M_\star$ is the stellar mass in Solar units.
+  \end{enumerate}
+\end{frame}
+
+% Slide 8b: Mathematical Model Derivation: Step 4
+\begin{frame}{Mathematical Model Derivation: Step 4}
+  \begin{enumerate}
+    \setcounter{enumi}{3}
+    \item \textbf{Step 4: Cosmology and Luminosity Distance ($D_L(z)$):}
+      In a flat $\Lambda$CDM cosmology ($H_0 = 70.0 \, \text{km/s/Mpc}, \Omega_{m,0} = 0.3$), the comoving distance is integrated:
+      $$D_C(z) = \frac{c}{H_0} \int_0^z \frac{dz'}{\sqrt{\Omega_{m,0}(1+z')^3 + \Omega_{\Lambda,0}}}$$
+    \item The luminosity distance is:
+      $$D_L(z) = (1+z) \cdot D_C(z)$$
+      To speed up computations, we pre-compute a grid of $(z, D_L)$ and interpolate using \texttt{scipy.interpolate.interp1d}.
+  \end{enumerate}
+\end{frame}
+
+% Slide 9: Detailed Derivation: Distance Modulus & Apparent Magnitude
+\begin{frame}{Detailed Derivation: Distance Modulus \& Apparent Magnitude}
+  \begin{itemize}
+    \item Absolute magnitude $M_r$ is defined at a standard distance of exactly $10\text{ pc}$. Since flux scales as $f \propto 1/d^2$:
+      $$\frac{f(D_L)}{f(10\text{ pc})} = \left( \frac{10\text{ pc}}{D_L} \right)^2 \implies m_r - M_r = 5 \log_{10} \left( \frac{D_L}{10\text{ pc}} \right)$$
+    \item To use $D_L(z)$ in Megaparsecs ($\text{Mpc}$), where $1\text{ Mpc} = 10^6\text{ pc}$, we convert:
+      $$\frac{D_L(\text{in pc})}{10\text{ pc}} = \frac{D_L(\text{in Mpc}) \times 10^6}{10} = D_L(\text{in Mpc}) \times 10^5$$
+    \item Substitute into the distance modulus equation:
+      $$m_r - M_r = 5 \log_{10} \left( D_L(\text{Mpc}) \times 10^5 \right) = 5 \log_{10} D_L(\text{Mpc}) + 25$$
+    \item This gives the final apparent magnitude formula:
+      $$m_r = M_r + 5 \log_{10} D_L(\text{Mpc}) + 25$$
+  \end{itemize}
+\end{frame}
+
+% Slide 9b: Worked Example: Malmquist Bias in Action
+\begin{frame}{Worked Example: Malmquist Bias in Action}
+  Let's compute apparent magnitudes for a galaxy with $M_\star = 10^{10} M_\odot$ ($\log_{10} M_\star = 10.0$) and color $(g-r) = 0.6$:
+  \begin{itemize}
+    \item \textbf{1. Mass-to-light ratio:} $\log_{10}(M/L)_g = 1.5(0.6) - 0.7 = 0.2$
+    \item \textbf{2. translation to r-band:} $\log_{10}(M/L)_r = 0.2 - 0.6/2.5 = -0.04$
+    \item \textbf{3. Absolute magnitude:} $M_r = 4.65 - 2.5(10.0 - (-0.04)) = -20.45$
+  \end{itemize}
+  Now let's compare two distances:
+  \begin{enumerate}
+    \item \textbf{Close proximity ($z \approx 0.08, D_L = 360\text{ Mpc}$):}
+      $$m_r = -20.45 + 5\log_{10}(360) + 25 = 17.33 \quad \implies \quad \textbf{Detected } (17.33 < 23.5)$$
+    \item \textbf{Distant universe ($z \approx 0.95, D_L = 6200\text{ Mpc}$):}
+      $$m_r = -20.45 + 5\log_{10}(6200) + 25 = 23.51 \quad \implies \quad \textbf{Masked Out } (23.51 \ge 23.5)$$
+  \end{enumerate}
+  This proves why distant dwarf galaxies vanish from our survey!
+\end{frame}
+
+% Slide 9c: Mathematical Model Derivation: Step 6
+\begin{frame}{Mathematical Model Derivation: Step 6}
+  \begin{enumerate}
+    \setcounter{enumi}{5}
+    \item \textbf{Step 6: Selection Mask:}
+      We apply the spectroscopic detection filter:
+      $$\text{detected\_mask} = m_r < 23.5$$
+      Galaxies with $m_r \ge 23.5$ are masked out, transforming our volume-complete catalog into a flux-limited observational catalog.
+  \end{enumerate}
+  \begin{alertblock}{Computational Consequence}
+    Applying this mask reduces our mock sample size from $\sim 100,000$ to $\sim 45,000$ galaxies, accurately mimicking real spectroscopic selection effects.
+  \end{alertblock}
+\end{frame}
+
+% Slide 10: Section 2 Divider
+\begin{frame}[plain]
+  \vfill
+  \centering
+  \begin{beamercolorbox}[sep=8pt,center,shadow=true,rounded=true]{palette primary}
+    \usebeamerfont{title}\textbf{Section 2: Supernova Progenitors \& Data Ingestion (Task 8)}
+  \end{beamercolorbox}
+  \vfill
+\end{frame}
+
+% Slide 11: Supernova Progenitors: Core-Collapse SNe
+\begin{frame}{Supernova Progenitors: Core-Collapse SNe}
+  \begin{itemize}
+    \item \textbf{Progenitors:} Massive stars ($M \ge 8 M_\odot$, spectral classes O and B).
+    \item \textbf{Lifespans:} Extremely short ($\tau \le 50\text{ Myr}$), meaning they explode almost immediately after their parent molecular cloud collapses.
+    \item \textbf{Host Environment:}
+      Because massive stars die before they can migrate out of their birth environments, Core-Collapse SNe directly trace instantaneous star formation. They reside exclusively in active star-forming galaxies (spirals and starbursts).
+    \item \textbf{Data source:} Confirmed observational catalog table from \textit{Sharma et al. 2024}.
+  \end{itemize}
+  \begin{block}{Key Stellar Property}
+    If a galaxy is quenched (no active star formation), it cannot host a Core-Collapse Supernova.
+  \end{block}
+\end{frame}
+
+% Slide 12: Supernova Progenitors: Type Ia SNe
+\begin{frame}{Supernova Progenitors: Type Ia SNe}
+  \begin{itemize}
+    \item \textbf{Progenitors:} Carbon-Oxygen white dwarfs in binary systems.
+    \item \textbf{Explosion Trigger:} Mass transfer from a giant donor star (single-degenerate) or the merger of two white dwarfs (double-degenerate).
+    \item \textbf{Delay Time Distribution (DTD):}
+      Unlike massive stars, white dwarfs can take a long time to explode. The delay time $\tau$ follows a power-law distribution $\text{DTD}(\tau) \propto \tau^{-\gamma}$ (with $\gamma \approx 1.15$), spanning from $\sim 100\text{ Myr}$ to $> 10\text{ Gyr}$.
+    \item \textbf{Host Environment:}
+      SNe Ia occur in both active, young star-forming galaxies and old, dead elliptical galaxies. The rate depends on both the total stellar mass (older stars) and the Star Formation Rate (younger stars).
+    \item \textbf{Data source:} SDSS-II Supernova Survey catalog (\textit{Lampeitl et al. 2010}).
+  \end{itemize}
+\end{frame}
+
+% Slide 13: Coordinate Cross-Matching Geometry
+\begin{frame}{Coordinate Cross-Matching Geometry}
+  Supernovae explode within the interstellar medium of their host galaxies, often offset by several kiloparsecs from the galactic nucleus.
+  \begin{itemize}
+    \item On the sky, this offset corresponds to angular separations of several arcseconds.
+    \item We must associate each supernova coordinate ($\text{ra}_{\text{SN}}, \text{dec}_{\text{SN}}$) with the persistent host galaxy.
+    \item \textbf{Spatial Search Box:}
+      We define an angular bounding box of 15 arcseconds ($0.0042^\circ$):
+      $$\Delta \alpha = |\text{ra}_{\text{host}} - \text{ra}_{\text{SN}}| \le 0.0042^\circ$$
+      $$\Delta \delta = |\text{dec}_{\text{host}} - \text{dec}_{\text{SN}}| \le 0.0042^\circ$$
+    \item If multiple galaxies fall within this box, we calculate the exact spherical angular separation $\Delta \theta$ and select the closest:
+      $$\Delta \theta = \sqrt{(\Delta \alpha \cos \text{dec}_{\text{SN}})^2 + (\Delta \delta)^2}$$
+  \end{itemize}
+\end{frame}
+
+% Slide 14: SDSS Database Querying & Schema
+\begin{frame}{SDSS Database Querying \& Schema}
+  Once we match coordinates, we fetch the host galaxy properties by querying the SDSS DR17 spectroscopic database server.
+  \begin{block}{SDSS Tables Used}
+    \begin{itemize}
+      \item \textbf{\texttt{PhotoObjAll} (p):} Contains photometric measurements (coordinates, magnitudes in $u,g,r,i,z$).
+      \item \textbf{\texttt{SpecObj} (s):} Contains spectroscopic measurements (redshift $z$, spectral class).
+      \item \textbf{\texttt{StellarMassFSPSFit} (m):} Contains stellar masses and star formation rates derived by fitting Flexible Stellar Population Synthesis (FSPS) models to the galaxy spectra.
+    \end{itemize}
+  \end{block}
+  \begin{block}{SQL Join Condition}
+    \texttt{PhotoObjAll p JOIN SpecObj s ON p.objid = s.bestObjID JOIN StellarMassFSPSFit m ON s.specObjID = m.specObjID}
+  \end{block}
+\end{frame}
+
+% Slide 15: SQL WAF Bypass and Batching
+\begin{frame}{SQL WAF Bypass and Batching}
+  \begin{itemize}
+    \item \textbf{Web Application Firewall (WAF) Block:}
+      The SDSS spectroscopic server is protected by a firewall. It rejects standard multi-line SQL queries as a security precaution, returning a \texttt{403 Forbidden} error.
+    \item \textbf{Bypass Implementation:}
+      We must programmatically sanitize and flatten our SQL query into a single-line string, stripping out newlines (\texttt{\textbackslash n}) and excess spacing:
+      \begin{itemize}
+        \item \textit{Before:} \texttt{SELECT ...\textbackslash n FROM ...\textbackslash n WHERE ...}
+        \item \textit{After:} \texttt{SELECT ... FROM ... WHERE ...}
+      \end{itemize}
+    \item \textbf{Batching:}
+      To avoid \texttt{503 Gateway Timeouts} when querying many coordinates, we split our list of 50 SNe Ia coordinates into batches of 10 and query them sequentially.
+    \item We implement rate-limiting (pause 1s between queries) and connection retry loops.
+  \end{itemize}
+\end{frame}
+
+% Slide 16: Section 3 Divider
+\begin{frame}[plain]
+  \vfill
+  \centering
+  \begin{beamercolorbox}[sep=8pt,center,shadow=true,rounded=true]{palette primary}
+    \usebeamerfont{title}\textbf{Section 3: Statistical Testing \& Results (Task 9)}
+  \end{beamercolorbox}
+  \vfill
+\end{frame}
+
+% Slide 17: Non-Parametric Statistics on Observational Catalogs
+\begin{frame}{Non-Parametric Statistics on Observational Catalogs}
+  Why can't we use standard student's t-tests or ANOVA to compare our supernova hosts with background galaxies?
+  \begin{itemize}
+    \item \alert{The Assumption Violation:}
+      Parametric tests assume the underlying distributions are Normal (Gaussian).
+    \item Galaxy stellar masses follow a Schechter function (power-law at low masses, exponential cutoff at high masses).
+    \item Galaxy star-formation rates are highly bimodal (star-forming main sequence vs. quenched red sequence).
+    \item \textbf{The Solution:} We must use non-parametric tests like the 1D/2D Kolmogorov-Smirnov (K-S) and Anderson-Darling (A-D) tests, which make no assumptions about the shape of the distribution.
+  \end{itemize}
+\end{frame}
+
+% Slide 18: Interpreting the Mass-sSFR Plane Results
+\begin{frame}{Interpreting the Mass--sSFR Plane Results}
+  Executing our verification code yields the following results:
+  \begin{table}
+    \centering
+    \begin{tabular}{lll}
+      \toprule
+      Test / Variable & CC-SNe Hosts vs. Background & Type Ia Hosts vs. Background \\
+      \midrule
+      \textbf{1D K-S Stellar Mass} & $p \approx 0.08$ (Not Significant) & $p \approx 10^{-3}$ (Highly Significant) \\
+      \textbf{1D K-S sSFR}         & $p \approx 10^{-4}$ (Highly Significant) & $p \approx 0.05$ (Marginal) \\
+      \textbf{2D K-S Joint Plane}  & \alert{$p \approx 10^{-5}$} (Very Significant) & \alert{$p \approx 10^{-6}$} (Extremely Significant) \\
+      \bottomrule
+    \end{tabular}
+  \end{table}
+  \begin{block}{Physical Explanation}
+    \begin{itemize}
+      \item \textbf{CC-SNe:} Have masses similar to average galaxies, but have much higher star-formation rates.
+      \item \textbf{Type Ia:} Reside in more massive galaxies due to the rate scaling with mass, but have a mixed star-formation profile.
+      \item \textbf{2D K-S Power:} By evaluating the joint Mass-sSFR plane, the 2D test captures the correlation structure (SFMS vs. Red Sequence) and reaches high statistical significance.
+    \end{itemize}
+  \end{block}
+\end{frame}
+
+% Slide 19: Section 4 Divider
+\begin{frame}[plain]
+  \vfill
+  \centering
+  \begin{beamercolorbox}[sep=8pt,center,shadow=true,rounded=true]{palette primary}
+    \usebeamerfont{title}\textbf{Section 4: Coding Tasks \& Exercise Details}
+  \end{beamercolorbox}
+  \vfill
+\end{frame}
+
+% Slide 20a: Task 7 - Student Code Exercise: Mass-to-Light Ratio
+\begin{frame}[fragile]{Task 7: Student Code Exercise - Mass-to-Light Ratio}
+  In \texttt{stellar\_trace\_assignment2.ipynb}, you must fill in the selection effects model:
+  \begin{block}{Missing Code 1: Mass-to-Light Ratio}
+\begin{lstlisting}[language=Python,basicstyle=\tiny\ttfamily,keywordstyle=\color{blue}]
+# Compute rest-frame g-r color with scatter
+color_gr = np.clip(0.5 - 0.25 * (ssfr + 10.0), -0.1, 1.0)
+color_gr += np.random.normal(0, 0.08, size=len(color_gr))
+
+# Calculate mass-to-light ratios (Bell & de Jong 2001)
+log_ml_g = 1.5 * color_gr - 0.7
+log_ml_r = log_ml_g - (color_gr / 2.5)
+\end{lstlisting}
+  \end{block}
+\end{frame}
+
+% Slide 20b: Task 7 - Student Code Exercise: Apparent Magnitude
+\begin{frame}[fragile]{Task 7: Student Code Exercise - Apparent Magnitude}
+  In \texttt{stellar\_trace\_assignment2.ipynb}, compute the absolute and apparent magnitudes:
+  \begin{block}{Missing Code 2: Apparent Magnitude}
+\begin{lstlisting}[language=Python,basicstyle=\tiny\ttfamily,keywordstyle=\color{blue}]
+# Solar absolute magnitude in r-band
+m_sun_r = 4.65
+absolute_mag_r = m_sun_r - 2.5 * (mass - log_ml_r)
+
+# Apparent magnitude using distance modulus
+apparent_mag_r = absolute_mag_r + 5.0 * np.log10(dl) + 25.0
+\end{lstlisting}
+  \end{block}
+\end{frame}
+
+% Slide 21: Task 8 - Coordinate Cross-Matching Exercise
+\begin{frame}[fragile]{Task 8: Coordinate Cross-Matching Exercise}
+  You must implement the spatial match function to link supernovae to their hosts:
+  \begin{block}{Missing Code: Bounding Box and Distance}
+\begin{lstlisting}[language=Python,basicstyle=\tiny\ttfamily,keywordstyle=\color{blue}]
+# Define box limit (15 arcseconds = 0.00417 degrees)
+box_limit = 15.0 / 3600.0
+
+# Mask galaxies inside the bounding box
+box_mask = (np.abs(galaxy_ra - sn_ra) <= box_limit) & \
+           (np.abs(galaxy_dec - sn_dec) <= box_limit)
+
+# Calculate spherical angular distance if matches found
+if np.any(box_mask):
+    matched_idx = np.where(box_mask)[0]
+    ra_diff = galaxy_ra[box_mask] - sn_ra
+    dec_diff = galaxy_dec[box_mask] - sn_dec
+    
+    # Spherical approximation
+    dist = np.sqrt((ra_diff * np.cos(np.radians(sn_dec)))**2 + dec_diff**2)
+    best_match = matched_idx[np.argmin(dist)]
+\end{lstlisting}
+  \end{block}
+\end{frame}
+
+% Slide 22: Task 8 - SQL Query Sanitizer Exercise
+\begin{frame}[fragile]{Task 8: SQL Query Sanitizer Exercise}
+  To bypass the SDSS Web Application Firewall (WAF), you must flatten your query:
+  \begin{block}{Missing Code: SQL Sanitizer}
+\begin{lstlisting}[language=Python,basicstyle=\tiny\ttfamily,keywordstyle=\color{blue}]
+def sanitize_sql(query_string):
+    # Strip comments starting with --
+    lines = [line.split('--')[0] for line in query_string.split('\n')]
+    
+    # Rejoin with spaces
+    flat_query = " ".join(lines)
+    
+    # Remove multiple consecutive spaces
+    flat_query = " ".join(flat_query.split())
+    return flat_query
+\end{lstlisting}
+  \end{block}
+  \begin{exampleblock}{Mentor Tip}
+    Explain to students that the WAF parses incoming strings for signature patterns. A clean, single-line string with standard syntax avoids triggers.
+  \end{exampleblock}
+\end{frame}
+
+% Slide 23: Task 9 - 2D K-S Test Implementation Exercise
+\begin{frame}[fragile]{Task 9: 2D K-S Test Implementation Exercise}
+  Students must fill in the 2D K-S test quadrants calculation:
+  \begin{block}{Missing Code: Quadrants Split}
+\begin{lstlisting}[language=Python,basicstyle=\tiny\ttfamily,keywordstyle=\color{blue}]
+# Evaluated at reference point (x0, y0)
+q1_1 = np.sum((x1 >= x0) & (y1 >= y0)) / n1  # Top-Right
+q2_1 = np.sum((x1 < x0)  & (y1 >= y0)) / n1  # Top-Left
+q3_1 = np.sum((x1 < x0)  & (y1 < y0))  / n1  # Bottom-Left
+q4_1 = np.sum((x1 >= x0) & (y1 < y0))  / n1  # Bottom-Right
+
+q1_2 = np.sum((x2 >= x0) & (y2 >= y0)) / n2
+q2_2 = np.sum((x2 < x0)  & (y2 >= y0)) / n2
+q3_2 = np.sum((x2 < x0)  & (y2 < y0))  / n2
+q4_2 = np.sum((x2 >= x0) & (y2 < y0))  / n2
+
+# Maximum difference across the quadrants
+d_local = max(abs(q1_1 - q1_2), abs(q2_1 - q2_2),
+              abs(q3_1 - q3_2), abs(q4_1 - q4_2))
+\end{lstlisting}
+  \end{block}
+\end{frame}
+
+% Slide 24: Common Student Gotchas & Troubleshooting
+\begin{frame}{Common Student Gotchas \& Troubleshooting}
+  As a mentor, guide students through these common bugs:
+  \begin{itemize}
+    \item \textbf{Astroquery Server Down:}
+      Sometimes SDSS CasJobs goes offline for maintenance. Implement local data fallbacks (`sharma\_hosts.dat`) so students can complete the lab.
+    \item \textbf{Astropy Cosmology Warnings:}
+      Interpolating outside the redshift grid boundaries ($z > 1.5$) throws errors. Clip redshift values to $[0.0, 1.5]$ before interpolating.
+    \item \textbf{SciPy A-D Warning:}
+      \texttt{scipy.stats.anderson\_ksamp} throws a warning when the p-value is outside the interpolation bounds ($p < 0.001$ or $p > 0.25$). Inform students this is normal and not a code bug.
+    \item \textbf{Peacock 2D Runtime:}
+      A naive Peacock 2D K-S test scales as $O(N^3)$. Warn students not to run the test on the entire background catalog ($N \sim 40,000$), but only on a sub-sampled background of $N \sim 500$!
+  \end{itemize}
+\end{frame}
+
+% Slide 25: Session 1 Summary \& Homework
+\begin{frame}{Session 1 Summary \& Homework}
+  \begin{block}{What We Covered Today}
+    \begin{itemize}
+      \item How telescopes select light (apparent magnitude, flux limit, Malmquist Bias).
+      \item Progenitor physics (Core-Collapse SNe require active star formation; Type Ia occur in both active and passive galaxies).
+      \item Coordinate cross-matching using spatial search boxes.
+      \item Querying SDSS and sanitizing queries to bypass firewalls.
+      \item 1D and 2D non-parametric tests on host catalogs.
+    \end{itemize}
+  \end{block}
+  \begin{description}
+    \item[Homework:] Open \texttt{stellar\_trace\_assignment2.ipynb} and complete the missing codes for Tasks 7--9. Ensure your plots are saved in the \texttt{plots/} folder.
+    \item[Session 2 Preview:] Next session, we will address class imbalances using SMOTE under strict train-test separation to prevent data leakage, and train our first Multi-Layer Perceptron classifier.
+  \end{description}
+\end{frame}
+
+\end{document}

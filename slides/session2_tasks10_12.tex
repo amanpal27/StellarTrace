@@ -1,0 +1,536 @@
+\documentclass[9pt]{beamer}
+\usetheme{metropolis}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{tikz}
+\usetikzlibrary{arrows,positioning,shapes.geometric,calc}
+
+% Define color palette matching our project design system
+\definecolor{primary}{HTML}{1abc9c}    % Deep Teal
+\definecolor{secondary}{HTML}{3498db}  % Astro Blue
+\definecolor{darkbg}{HTML}{2c3e50}     % Slate Blue
+\definecolor{accent}{HTML}{e67e22}     % Orange
+
+\setbeamercolor{palette primary}{bg=darkbg, fg=white}
+\setbeamercolor{palette secondary}{bg=primary, fg=white}
+\setbeamercolor{palette tertiary}{bg=secondary, fg=white}
+\setbeamercolor{structure}{fg=primary}
+\setbeamercolor{alerted text}{fg=accent}
+
+\title{Stellar Trace: Host Profiling \& Machine Learning}
+\subtitle{Session 2: Class Imbalance, Data Leakage, \& Neural Network Classifiers (Tasks 10--12)}
+\author{Astronomy Club}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+% Slide 2: Session Series Roadmap
+\begin{frame}{Session Series Roadmap}
+  \begin{block}{Phase 2 Curriculum Structure}
+    Stellar Trace Phase 2 transitions from the volume-complete universe model of Milestone 1 to real data ingestion, classifier training, and physical model fitting:
+  \end{block}
+  \begin{description}
+    \item[Session 1:] \textbf{Telescopes \& Statistics (Tasks 7--9)}
+      \begin{itemize}
+        \item Selection effects, coordinate cross-matching, database querying, and 1D/2D K-S tests.
+      \end{itemize}
+    \item[Session 2 (Today):] \textbf{Machine Learning \& Data Leakage (Tasks 10--12)}
+      \begin{itemize}
+        \item Task 10: Addressing Class Imbalance via Dataset Oversampling.
+        \item Task 11: Multiclass Neural Network \& Hyperparameter Optimization.
+        \item Task 12: Model Interpretability via Permutation Importance \& OOP Assembly.
+      \end{itemize}
+    \item[Session 3:] \textbf{Rate Fitting \& Physics-Informed nets (Tasks 13--15)}
+      \begin{itemize}
+        \item Bayesian MCMC (Metropolis-Hastings), PINNs, and DTD Convolution.
+      \end{itemize}
+  \end{description}
+\end{frame}
+
+% Slide 3: Session 2 Objectives
+\begin{frame}{Session 2 Objectives}
+  By the end of this session, you will be able to:
+  \begin{enumerate}
+    \item Explain the class imbalance problem in transient astronomy and why accuracy is a misleading metric.
+    \item Identify the mechanisms of data leakage and implement a leak-free oversampling pipeline.
+    \item Explain the mathematics of Multi-Layer Perceptrons (MLPs), hidden layers, non-linear activations, and Softmax output.
+    \item Derive the gradient of the cross-entropy loss function with respect to neural network logits.
+    \item Optimize neural networks using 5-fold cross-validation grid searches over hyperparameter grids.
+    \item Evaluate multiclass models using Macro F1-scores, Confusion Matrices, and One-vs-Rest ROC/AUC curves.
+    \item Calculate Permutation Feature Importance to extract physical rules learned by neural networks.
+    \item Refactor modular science scripts into a production-grade Object-Oriented pipeline class.
+  \end{enumerate}
+\end{frame}
+
+% Slide 4: Section 1 Divider
+\begin{frame}[plain]
+  \vfill
+  \centering
+  \begin{beamercolorbox}[sep=8pt,center,shadow=true,rounded=true]{palette primary}
+    \usebeamerfont{title}\textbf{Section 1: Class Imbalance \& Data Leakage (Task 10)}
+  \end{beamercolorbox}
+  \vfill
+\end{frame}
+
+% Slide 5: The Class Imbalance Problem in Astronomy
+\begin{frame}{The Class Imbalance Problem in Astronomy}
+  Cosmic explosions (supernovae, gamma-ray bursts, fast radio bursts) are rare physical anomalies. Consequently, host galaxy catalogs are orders of magnitude smaller than catalogs of the general field galaxy population.
+  \begin{block}{Our Compiled Machine Learning Dataset}
+    \begin{itemize}
+      \item \textbf{Class 0 (Background field galaxies):} $N_0 = 150$ (Majority class)
+      \item \textbf{Class 1 (Core-Collapse SN hosts):} $N_1 = 30$ (Minority class)
+      \item \textbf{Class 2 (Type Ia SN hosts):} $N_2 \approx 17-20$ (Minority class, from VizieR matching)
+    \end{itemize}
+  \end{block}
+  \begin{alertblock}{Why Global Accuracy Fails}
+    If a model is trained directly on this imbalanced dataset, the loss function will optimize performance on the majority class. A naive classifier predicting Class 0 for every galaxy yields an accuracy of:
+    $$\text{Accuracy} = \frac{150}{150 + 30 + 20} = 75\%$$
+    despite failing to identify a single supernova host environment. We must rebalance the data.
+  \end{alertblock}
+\end{frame}
+
+% Slide 6: Class Imbalance Math: Precision, Recall, and F1
+\begin{frame}{Class Imbalance Math: Precision, Recall, and F1}
+  To evaluate imbalanced classifiers, we look at performance on each class $c$ individually:
+  \begin{itemize}
+    \item \textbf{Precision ($P_c$):} Out of all predicted instances of class $c$, how many actually belong to $c$?
+      $$P_c = \frac{\text{TP}_c}{\text{TP}_c + \text{FP}_c}$$
+    \item \textbf{Recall ($R_c$):} Out of all actual instances of class $c$, how many did we successfully find?
+      $$R_c = \frac{\text{TP}_c}{\text{TP}_c + \text{FN}_c}$$
+    \item \textbf{F1-score ($\text{F1}_c$):} The harmonic mean of Precision and Recall. It balances both metrics:
+      $$\text{F1}_c = 2 \cdot \frac{P_c \cdot R_c}{P_c + R_c} = \frac{\text{TP}_c}{\text{TP}_c + \frac{1}{2}(\text{FP}_c + \text{FN}_c)}$$
+    \item \textbf{Macro F1-score ($\text{F1}_{\text{macro}}$):} The unweighted arithmetic average of F1-scores across all classes:
+      $$\text{F1}_{\text{macro}} = \frac{1}{C} \sum_{c=1}^C \text{F1}_c$$
+      Treats rare classes (SNe hosts) with the same importance as background field galaxies!
+  \end{itemize}
+\end{frame}
+
+% Slide 7: Oversampling and Rebalancing Strategies
+\begin{frame}{Oversampling and Rebalancing Strategies}
+  How do we mathematically balance our training data?
+  \begin{description}
+    \item[Undersampling:] Discarding majority class instances (Class 0) until class sizes are equal.
+      \begin{itemize}
+        \item \alert{Drawback:} Discards valuable physical information, reducing the dataset size.
+      \end{itemize}
+    \item[Random Oversampling (ROS):] Sampling minority class instances (Class 1 and 2) with replacement until they match the majority class.
+      \begin{itemize}
+        \item Let $S_c$ be the training samples of class $c$, and $N_{\text{target}} = \max_c |S_c|$.
+        \item If $|S_c| < N_{\text{target}}$, draw new samples uniformly with replacement:
+          $$x^* \sim \mathcal{U}(S_c) \quad \text{until} \quad |S_c| = N_{\text{target}}$$
+        \item \alert{Drawback:} Can lead to overfitting because the model memorizes exact duplicates.
+      \end{itemize}
+    \item[Synthetic Minority Over-sampling (SMOTE):]
+      Generates synthetic instances along the line segments connecting minority class data points and their nearest neighbors:
+      $$\mathbf{x}_{\text{new}} = \mathbf{x}_i + \lambda (\mathbf{x}_{nn} - \mathbf{x}_i), \quad \lambda \sim U(0, 1)$$
+  \end{description}
+\end{frame}
+
+% Slide 8: The Fatal Trap: Data Leakage
+\begin{frame}{The Fatal Trap: Data Leakage}
+  Applying oversampling to the entire dataset \textbf{prior} to performing the train-test split is a critical methodological error known as \textbf{data leakage} (or validation contamination).
+  \begin{block}{How Data Leakage Occurs}
+    \begin{enumerate{}}
+      \item The minority classes are oversampled (via duplication or SMOTE), generating identical or near-identical instances.
+      \item The dataset is split into training and test sets.
+      \item Identical clones of the same galaxies are distributed into both the training and test sets.
+      \item During training, the classifier simply memorizes the clones. It evaluates them on the test set, achieving an artificially perfect classification score:
+        $$\text{F1-score} \approx 1.00$$
+    \end{enumerate}
+  \end{block}
+  \alert{Physical Reality Check:} When deployed on new telescope observations, this model fails catastrophically because it memorized duplicates rather than learning physical features.
+\end{frame}
+
+% Slide 9: The Leakage-Free Pipeline
+\begin{frame}{The Leakage-Free Pipeline}
+  To prevent data leakage, we must strictly isolate the test set from any oversampling procedures:
+  \begin{block}{Correct Order of Operations}
+    \begin{enumerate}
+      \item \textbf{Stratified Split:} Split the raw dataset into training ($70\%$) and test ($30\%$) sets. We use a stratified split to ensure the proportions of Class 0, 1, and 2 are identical in both sets.
+      \item \textbf{Isolate Test Set:} Place the test set aside. It remains untouched, imbalanced, and scale-free, representing the true physical distribution of the universe.
+      \item \textbf{Oversample Training Set:} Apply oversampling \textbf{only} to the training data.
+      \item \textbf{Train \& Evaluate:} Train the model on the rebalanced training set. Evaluate on the untouched, imbalanced test set.
+    \end{enumerate}
+  \end{block}
+  \begin{exampleblock}{Validation Principle}
+    Always validate on the true physical distribution. The test set must remain as messy as the real universe.
+  \end{exampleblock}
+\end{frame}
+
+% Slide 10: Task 10 - Conceptual Recap
+\begin{frame}{Task 10: Conceptual Recap}
+  In \texttt{stellar\_trace\_assignment2.ipynb}, you implement the stratified split and training-only manual oversampling function:
+  \begin{itemize}
+    \item \textbf{Stratified Splitting:} Utilizes \texttt{sklearn.model\_selection.train\_test\_split} with the parameter \texttt{stratify=df\_ml['class']} to enforce identical class distributions in the training ($70\%$) and testing ($30\%$) subsets.
+    \item \textbf{Manual Oversampling:} Rather than importing external libraries (like \texttt{imblearn}), you write a custom function \texttt{oversample\_dataset}:
+      \begin{enumerate}
+        \item Identifies the maximum class count in the training partition ($N_{\text{target}} = 105$).
+        \item Iterates over each class subset.
+        \item For minority classes ($1$ and $2$), samples with replacement (\texttt{replace=True}) until the size equals $N_{\text{target}}$.
+        \item Concatenates the balanced partitions back into a unified training set.
+      \end{enumerate}
+    \item \textbf{Verification:} Confirms that the training set becomes perfectly balanced ($105$ instances per class), while the test set remains imbalanced and untouched ($45$ field, $9$ CC-SNe, $6$ Ia-SNe hosts).
+  \end{itemize}
+\end{frame}
+
+% Slide 11: Section 2 Divider
+\begin{frame}[plain]
+  \vfill
+  \centering
+  \begin{beamercolorbox}[sep=8pt,center,shadow=true,rounded=true]{palette primary}
+    \usebeamerfont{title}\textbf{Section 2: Multi-Layer Perceptrons \& Neural Net Math (Task 11)}
+  \end{beamercolorbox}
+  \vfill
+\end{frame}
+
+% Slide 12: What is a Multi-Layer Perceptron (MLP)?
+\begin{frame}{What is a Multi-Layer Perceptron (MLP)?}
+  An MLP is a feed-forward artificial neural network that maps an input feature vector $\mathbf{x} \in \mathbb{R}^d$ to a target probability distribution over $C$ classes.
+  \begin{itemize}
+    \item \textbf{Input Features ($d = 4$):}
+      $$\mathbf{x} = [\text{redshift}, \log_{10} M_\star, \log_{10} \text{SFR}, \text{ssfr}]^T$$
+    \item \textbf{Network Architecture:}
+      \begin{itemize}
+        \item \textbf{Input Layer:} Receives the normalized physical features.
+        \item \textbf{Hidden Layers:} Performs non-linear transformations to extract complex parameter boundary shapes (corridors).
+        \item \textbf{Output Layer:} Outputs class probabilities (Class 0, 1, or 2).
+      \end{itemize}
+    \item \textbf{Normalizing Inputs (StandardScaler):}
+      Because features have wildly different physical units (redshift $\sim 0.1$, Mass $\sim 10^{10} M_\odot$), we must normalize features using a \texttt{StandardScaler} to ensure stable gradient descent:
+      $$x_{\text{scaled}} = \frac{x - \mu}{\sigma}$$
+      where $\mu$ is the mean and $\sigma$ is the standard deviation.
+  \end{itemize}
+\end{frame}
+
+% Slide 13: Hidden Layer Mathematics
+\begin{frame}{Hidden Layer Mathematics}
+  Each neuron in a hidden layer performs a linear combination of its inputs, adds a bias, and applies a non-linear activation function:
+  $$\mathbf{z}^{(l)} = \mathbf{W}^{(l)} \mathbf{a}^{(l-1)} + \mathbf{b}^{(l)}, \quad \mathbf{a}^{(l)} = f(\mathbf{z}^{(l)})$$
+  Where:
+  \begin{itemize}
+    \item $\mathbf{a}^{(l-1)}$ is the activation vector from the previous layer ($\mathbf{a}^{(0)} = \mathbf{x}_{\text{scaled}}$).
+    \item $\mathbf{W}^{(l)}$ and $\mathbf{b}^{(l)}$ are the weight matrix and bias vector of layer $l$.
+    \item $f(z)$ is the \textbf{activation function}.
+  \end{itemize}
+  \begin{block}{Layer Dimensions for \texttt{hidden\_layer\_sizes = (32, 16)}}
+    \begin{itemize}
+      \item \textbf{Input:} $\mathbf{a}^{(0)} \in \mathbb{R}^4$
+      \item \textbf{Hidden Layer 1:} $\mathbf{W}^{(1)} \in \mathbb{R}^{32 \times 4}$, $\mathbf{b}^{(1)} \in \mathbb{R}^{32}$, output $\mathbf{a}^{(1)} \in \mathbb{R}^{32}$
+      \item \textbf{Hidden Layer 2:} $\mathbf{W}^{(2)} \in \mathbb{R}^{16 \times 32}$, $\mathbf{b}^{(2)} \in \mathbb{R}^{16}$, output $\mathbf{a}^{(2)} \in \mathbb{R}^{16}$
+      \item \textbf{Output Layer:} $\mathbf{W}^{(3)} \in \mathbb{R}^{3 \times 16}$, $\mathbf{b}^{(3)} \in \mathbb{R}^3$, output logits $\mathbf{z}^{(3)} \in \mathbb{R}^3$
+    \end{itemize}
+  \end{block}
+\end{frame}
+
+% Slide 14: Hidden Layer Activation Functions
+\begin{frame}{Hidden Layer Activation Functions}
+  \begin{block}{Why Non-Linear Activations?}
+    Without a non-linear function $f(z)$, nested linear transformations collapse into a single linear regression ($\mathbf{W}_3 \mathbf{W}_2 \mathbf{W}_1 \mathbf{x} + \mathbf{b}'$), preventing the network from learning complex shapes (like the bimodal main sequence).
+  \end{block}
+  \begin{columns}
+    \begin{column}{0.5\textwidth}
+      \alert{\textbf{ReLU (Rectified Linear Unit):}}
+      $$f(x) = \max(0, x)$$
+      \begin{itemize}
+        \item \textbf{Range:} $[0, \infty)$
+        \item \textbf{Derivative:} $f'(x) = 1$ if $x > 0$, else $0$.
+        \item \textbf{Pros:} Fast computation, mitigates vanishing gradients.
+        \item \textbf{Cons:} ``Dying ReLU'' problem (neurons stuck in the zero-gradient region).
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.5\textwidth}
+      \alert{\textbf{tanh (Hyperbolic Tangent):}}
+      $$f(x) = \tanh(x) = \frac{e^x - e^{-x}}{e^x + e^{-x}}$$
+      \begin{itemize}
+        \item \textbf{Range:} $(-1, 1)$
+        \item \textbf{Derivative:} $f'(x) = 1 - \tanh^2(x)$
+        \item \textbf{Pros:} Zero-centered, which stabilizes weight updates.
+        \item \textbf{Cons:} Suffers from vanishing gradients for large $|x|$.
+      \end{itemize}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+% Slide 15: Output Layer \& Softmax Activation
+\begin{frame}{Output Layer \& Softmax Activation}
+  The final layer of the network contains $C=3$ output nodes, corresponding to Class 0, 1, and 2. It produces raw real-valued numbers called \textbf{logits} $\mathbf{z} \in \mathbb{R}^3$.
+  \begin{block}{The Softmax function}
+    To turn logits into probabilities, we use the Softmax function:
+    $$P_c = P(y = c \mid \mathbf{x}) = \frac{e^{z_c}}{\sum_{j=0}^{C-1} e^{z_j}}$$
+  \end{block}
+  \begin{itemize}
+    \item Softmax exponentiates each logit, ensuring they are positive.
+    \item It divides by the sum of all exponentiated logits, normalizing the output such that they sum to exactly 1.0:
+      $$\sum_{c=0}^2 P(y = c \mid \mathbf{x}) = 1.0$$
+    \item The model's final prediction is the class with the highest probability:
+      $$\hat{y} = \text{argmax}_{c} P_c$$
+  \end{itemize}
+\end{frame}
+
+% Slide 16: Loss Function: Categorical Cross-Entropy
+\begin{frame}{Loss Function: Categorical Cross-Entropy}
+  To train the network, we measure the error between predicted probabilities and the true classes using the \textbf{Categorical Cross-Entropy Loss} ($\mathcal{L}$).
+  \begin{block}{Loss for a single galaxy $i$}
+    $$\mathcal{L}_i = - \sum_{c=0}^{C-1} y_{ic} \log P_{ic}$$
+    where $y_{ic}$ is a one-hot encoded indicator ($1$ if class $c$ is the true label, $0$ otherwise).
+  \end{block}
+  \begin{block}{Average Loss with L2 Regularization (Weight Decay)}
+    To prevent overfitting by keeping weights small, we add an L2 penalty on the weights:
+    $$\mathcal{L} = -\frac{1}{N} \sum_{i=1}^N \sum_{c=0}^{C-1} y_{ic} \log P_{ic} + \frac{\alpha}{2} \sum_{l=1}^L \sum_{p} \sum_{q} (W_{pq}^{(l)})^2$$
+    where $\alpha$ is the weight decay hyperparameter.
+  \end{block}
+\end{frame}
+
+% Slide 17: Derivation: Logit Gradients (Part 1 - Setup)
+\begin{frame}{Derivation: Logit Gradients (Part 1 - Setup)}
+  The error gradient with respect to the output logits $\mathbf{z}$ is critical for backpropagation. Let's derive $\frac{\partial \mathcal{L}_i}{\partial z_c}$ for a single galaxy.
+  By the Chain Rule, we expand the derivative of the loss function:
+  \begin{align*}
+    \frac{\partial \mathcal{L}_i}{\partial z_c} &= - \sum_{k=0}^{C-1} y_k \frac{\partial \log P_k}{\partial z_c} = - \sum_{k=0}^{C-1} y_k \frac{1}{P_k} \frac{\partial P_k}{\partial z_c}
+  \end{align*}
+  Recall that the Softmax output for class $k$ is $P_k = e^{z_k} / \sum_{j} e^{z_j}$. Its derivative with respect to logit $z_c$ is:
+  $$\frac{\partial P_k}{\partial z_c} = P_k (\delta_{kc} - P_c)$$
+  where Kronecker's delta $\delta_{kc} = 1$ if $k=c$, and $0$ if $k \neq c$.
+\end{frame}
+
+% Slide 18: Derivation: Logit Gradients (Part 2 - Simplification)
+\begin{frame}{Derivation: Logit Gradients (Part 2 - Simplification)}
+  Substituting the Softmax derivative back into the Chain Rule expansion:
+  \begin{align*}
+    \frac{\partial \mathcal{L}_i}{\partial z_c} &= - \sum_{k=0}^{C-1} y_k \frac{1}{P_k} \left[ P_k (\delta_{kc} - P_c) \right] \\
+    &= - \sum_{k=0}^{C-1} y_k (\delta_{kc} - P_c) \\
+    &= - \sum_{k=0}^{C-1} y_k \delta_{kc} + P_c \sum_{k=0}^{C-1} y_k
+  \end{align*}
+  Since $\mathbf{y}$ is one-hot encoded, $\sum_{k=0}^{C-1} y_k = 1.0$. And $\sum_{k} y_k \delta_{kc} = y_c$.
+  $$\frac{\partial \mathcal{L}_i}{\partial z_c} = P_c - y_c$$
+  \begin{alertblock}{The Gradient Rule}
+    The logit gradient is simply the linear prediction error: $P_c - y_c$.
+  \end{alertblock}
+\end{frame}
+
+% Slide 19: L2 Weight Decay Gradient Update
+\begin{frame}{L2 Weight Decay Gradient Update}
+  How does the L2 penalty affect our gradient descent updates?
+  \begin{itemize}
+    \item Let $\mathcal{L}_0$ be the unregularized loss, and $\mathcal{L} = \mathcal{L}_0 + \frac{\alpha}{2} W^2$ (for a single weight $W$).
+    \item Taking the partial derivative with respect to $W$:
+      $$\frac{\partial \mathcal{L}}{\partial W} = \frac{\partial \mathcal{L}_0}{\partial W} + \alpha W$$
+    \item The gradient descent update rule with learning rate $\eta$ is:
+      $$W \leftarrow W - \eta \frac{\partial \mathcal{L}}{\partial W}$$
+    \item Substituting the derivative:
+      $$W \leftarrow W - \eta \left( \frac{\partial \mathcal{L}_0}{\partial W} + \alpha W \right) = (1 - \eta \alpha) W - \eta \frac{\partial \mathcal{L}_0}{\partial W}$$
+  \end{itemize}
+  \begin{block}{Weight Decay Interpretation}
+    At each step, we multiply the weight by a factor $(1 - \eta \alpha) < 1.0$ before applying the standard gradient step. This shrinks weights toward zero, reducing model complexity!
+  \end{block}
+\end{frame}
+
+% Slide 20: Section 3 Divider
+\begin{frame}[plain]
+  \vfill
+  \centering
+  \begin{beamercolorbox}[sep=8pt,center,shadow=true,rounded=true]{palette primary}
+    \usebeamerfont{title}\textbf{Section 3: Model Evaluation \& Hyperparameter Optimization (Task 11)}
+  \end{beamercolorbox}
+  \vfill
+\end{frame}
+
+% Slide 21: Hyperparameter Tuning via K-Fold Cross-Validation
+\begin{frame}{Hyperparameter Tuning via K-Fold Cross-Validation}
+  We search for the best network settings using \textbf{5-Fold Cross-Validation} over a grid of hyperparameters:
+  \begin{itemize}
+    \item \textbf{Why Cross-Validation?} Evaluating only on a single split can lead to overfitting the validation set. Dividing the training set ensures the model generalizes well.
+  \end{itemize}
+  \begin{block}{5-Fold Cross-Validation Workflow}
+    \begin{enumerate}
+      \item Split the resampled training set into 5 equal parts (folds).
+      \item For each parameter combination, train the model 5 times: train on 4 folds, and validate on the remaining 1 fold.
+      \item Average the Macro F1 validation score across all 5 folds.
+      \item Select the parameter combination that yields the highest average score.
+    \end{enumerate}
+  \end{block}
+  \begin{block}{Grid Search Parameters in Task 11}
+    \begin{itemize}
+      \item \textbf{hidden\_layer\_sizes:} \texttt{(32, 16)} (2 layers) vs. \texttt{(64, 32)} (2 layers)
+      \item \textbf{activation:} \texttt{'relu'} (rectified linear) vs. \texttt{'tanh'} (hyperbolic tangent)
+      \item \textbf{alpha (L2 regularisation):} \texttt{0.01} vs. \texttt{0.1}
+    \end{itemize}
+  \end{block}
+\end{frame}
+
+% Slide 22: Task 11: Pipeline Preprocessing \& Scaling Isolation
+\begin{frame}{Task 11: Pipeline Preprocessing \& Scaling Isolation}
+  Implementing a robust neural network workflow requires careful handling of data scaling statistics:
+  \begin{itemize}
+    \item \textbf{Feature Extraction:} Extract training features ($X_{\text{train}}$) and targets ($y_{\text{train}}$) from the oversampled dataset, and test features ($X_{\text{test}}$) and targets ($y_{\text{test}}$) from the split dataset.
+    \item \textbf{Scaling Isolation:} Instantiates \texttt{StandardScaler} and calls \texttt{fit\_transform(X\_train)}, then calls \texttt{transform(X\_test)}. 
+    \item \alert{CRITICAL CONCEPT:} The test set $X_{\text{test}}$ must \textbf{only} be transformed, not fit. Fitting on the test set leaks mean and standard deviation information from the evaluation partition, falsely inflating model diagnostics.
+    \item \textbf{Model Grid Definition:} The search grid comprises $8$ distinct neural network configurations ($2 \times 2 \times 2$ combinations of hidden sizes, activations, and weight decay bounds), optimized via Macro F1 metrics to weight classes equally.
+  \end{itemize}
+\end{frame}
+
+% Slide 23: Model Evaluation: Confusion Matrix \& ROC Curves
+\begin{frame}{Model Evaluation: Confusion Matrix \& ROC Curves}
+  We evaluate our multiclass model on the untouched test set using two diagnostic panels:
+  \begin{description}
+    \item[Panel 1: Multiclass ROC Curves (One-vs-Rest):]
+      \begin{itemize}
+        \item Plots True Positive Rate (TPR) vs. False Positive Rate (FPR) for each class $c$ treated as positive against all other classes.
+        \item Area Under the Curve (AUC) measures class separability.
+        \item An AUC close to $1.0$ (e.g., $>0.90$) confirms the network successfully distinguishes transient hosts from background galaxies.
+      \end{itemize}
+    \item[Panel 2: Confusion Matrix:]
+      \begin{itemize}
+        \item A $3 \times 3$ contingency table listing True Labels (rows) vs. Predicted Labels (columns).
+        \item Exposes where errors occur, e.g., if the model confuses CC-SNe hosts (Class 1) with Type Ia hosts (Class 2).
+      \end{itemize}
+  \end{description}
+\end{frame}
+
+% Slide 24: Section 4 Divider
+\begin{frame}[plain]
+  \vfill
+  \centering
+  \begin{beamercolorbox}[sep=8pt,center,shadow=true,rounded=true]{palette primary}
+    \usebeamerfont{title}\textbf{Section 4: Model Interpretability \& OOP Assembly (Task 12)}
+  \end{beamercolorbox}
+  \vfill
+\end{frame}
+
+% Slide 25: The "Black Box" Problem in Neural Networks
+\begin{frame}{The ``Black Box'' Problem in Neural Networks}
+  \begin{itemize}
+    \item While neural networks achieve high classification accuracy, they consist of millions of nested matrix multiplications and non-linear boundaries.
+    \item Unlike linear regression, you cannot simply look at a weight coefficient to see how important a feature is. The model acts as a \textbf{black box}.
+    \item \alert{Scientific Requirement:} In physics and astronomy, we do not just care about accurate predictions; we must understand \textbf{why} the model made a prediction (what physical features it prioritized).
+    \item We resolve this using \textbf{Permutation Feature Importance}.
+  \end{itemize}
+\end{frame}
+
+% Slide 26: Permutation Feature Importance Theory
+\begin{frame}{Permutation Feature Importance Theory}
+  Let $M$ be a trained classifier, $D = (\mathbf{X}, \mathbf{y})$ be the validation dataset, and $s$ be the baseline score (Macro F1-score).
+  \begin{block}{Breiman's Algorithm (2001)}
+    For each physical feature $j$ (e.g., Star Formation Rate):
+    \begin{enumerate}
+      \item \textbf{Shuffle Column:} Randomly shuffle the values of column $j$ across the dataset. This breaks the physical correlation between feature $j$ and the target label $y$ while preserving the feature's distribution.
+      \item \textbf{Evaluate:} Calculate the model performance $s^{(j)}$ on this perturbed dataset.
+      \item \textbf{Compute Drop:} Define importance as the drop in performance:
+        $$I(j) = s - s^{(j)}$$
+    \end{enumerate}
+  \end{block}
+  \begin{itemize}
+    \item If a feature is \textbf{critical}, shuffling it will degrade model performance, yielding a large $I(j) > 0$.
+    \item If a feature is \textbf{irrelevant}, shuffling it has little effect, yielding $I(j) \approx 0$.
+  \end{itemize}
+\end{frame}
+
+% Slide 27: Task 12: Permutation Feature Importance in Action
+\begin{frame}{Task 12: Permutation Feature Importance in Action}
+  In Task 12, we execute permutation calculations on the scaled test set:
+  \begin{itemize}
+    \item \textbf{Methodology:} We use \texttt{sklearn.inspection.permutation\_importance} over $10$ repeats (\texttt{n\_repeats=10}) to compute stable mean and standard deviation importance scores.
+    \item \textbf{Feature Rankings:} The calculations yield a ranked list of importances:
+      \begin{enumerate}
+        \item $\log_{10} M_\star$ and $\log_{10} \text{SFR}$ show the highest mean drop in Macro F1-score.
+        \item $\text{ssfr}$ (Specific Star Formation Rate) follows as a secondary indicator.
+        \item $\text{redshift}$ has the least impact on F1 metrics.
+      \end{enumerate}
+    \item \textbf{Physical Inference:} Shuffling mass and SFR destroys the core physical signals of the host galaxy, which confirms that our MLP has successfully learned the underlying rate equations of stellar nucleosynthesis and supernova delay times.
+  \end{itemize}
+\end{frame}
+
+% Slide 28: Physical Interpretation of Model Importances
+\begin{frame}{Physical Interpretation of Model Importances}
+  Why does the neural network prioritize certain features over others?
+  \begin{itemize}
+    \item \textbf{Mass ($\log_{10} M_\star$) and Star Formation Rate ($\log_{10} \text{SFR}$):}
+      Shuffling these parameters results in the largest decrease in Macro F1-score.
+      \begin{itemize}
+        \item \textbf{Mass dependence:} Type Ia supernovae are produced by white dwarfs in binary systems, which accumulate over time. Their rate scales with total stellar mass.
+        \item \textbf{SFR dependence:} Core-Collapse supernovae come from short-lived massive stars ($M \ge 8 M_\odot$) that trace active star formation.
+      \end{itemize}
+    \item \textbf{Specific Star Formation Rate ($\text{ssfr} = \log_{10} \text{SFR} - \log_{10} M_\star$):}
+      This captures the relative activity of the galaxy, allowing the network to distinguish quenched ellipticals from active spirals.
+    \item \textbf{Physical Validation:}
+      The network has successfully discovered the fundamental physical rate correlations we programmed into the synthetic universe (SFMS and DTD power laws) without ever being shown the underlying equations!
+  \end{itemize}
+\end{frame}
+
+% Slide 29: Object-Oriented Software Design for Astronomy
+\begin{frame}{Object-Oriented Software Design for Astronomy}
+  In academic research, scientists often write long, disorganized scripts or notebooks. In production environments and sky-survey pipelines, individual models must be consolidated into a clean, modular structure.
+  \begin{itemize}
+    \item \textbf{Object-Oriented Programming (OOP):} Encapsulates variables and functions inside modular objects (classes).
+    \item We wrap our entire Phase 1 and 2 models into a single, unified pipeline class:
+      $$\texttt{StellarTraceEngine}$$
+    \item \textbf{Pipeline Components wrapped:}
+      \begin{enumerate}
+        \item The Star Formation Main Sequence (SFMS) regression model (from Milestone 1) to predict baseline Star Formation Rates.
+        \item The polynomial features transformer (\texttt{PolynomialFeatures}) to format input stellar mass.
+        \item The fitted \texttt{StandardScaler} to normalize galaxy inputs.
+        \item The optimized multiclass \texttt{MLPClassifier} (from Task 11).
+      \end{enumerate}
+  \end{itemize}
+\end{frame}
+
+% Slide 30: Task 12: StellarTraceEngine Pipeline Assembly
+\begin{frame}{Task 12: StellarTraceEngine Pipeline Assembly}
+  The custom class \texttt{StellarTraceEngine} provides a modular and clean interface for host classification:
+  \begin{itemize}
+    \item \textbf{Constructor (\texttt{\_\_init\_\_}):} Accepts and registers four pre-fitted assets: \texttt{sfms\_reg}, \texttt{sfms\_poly}, \texttt{mlp\_model}, and \texttt{scaler\_model}.
+    \item \textbf{Pipeline Prediction Method (\texttt{predict\_host\_probabilities(log\_mstar, redshift)}):}
+      \begin{enumerate}
+        \item Predicts baseline $\log_{10} \text{SFR}$ using the polynomial mass regression.
+        \item Calculates specific star formation rate ($\text{ssfr} = \log_{10} \text{SFR} - \log_{10} M_\star$).
+        \item Assembles the feature vector: $[\text{redshift}, \log_{10} M_\star, \log_{10} \text{SFR}_{\text{baseline}}, \text{ssfr}]$.
+        \item Normalizes the vector using the pre-fitted \texttt{StandardScaler}.
+        \item Executes \texttt{mlp.predict\_proba} and maps outputs to a dictionary:
+          $$\{\text{'Background'}: P_0, \text{'CC-SN'}: P_1, \text{'Ia-SN'}: P_2\}$$
+      \end{enumerate}
+    \item \textbf{Generalization:} The user can pass any new galaxy physical parameters and obtain class assignments out-of-the-box.
+  \end{itemize}
+\end{frame}
+
+% Slide 31: Common Student Gotchas \& Troubleshooting
+\begin{frame}{Common Student Gotchas \& Troubleshooting}
+  Keep an eye out for these frequent student implementation bugs:
+  \begin{description}
+    \item[Data Leakage:]
+      Oversampling the entire dataset before train-test split. Warn them if they get a suspicious $\text{F1} = 1.00$.
+    \item[Data Scaling Leakage:]
+      Calling \texttt{scaler.fit\_transform} on both the training and test sets. The scaler must only be fit on the training data:
+      $$\text{scaler.fit}(X_{\text{train}}) \rightarrow \text{transform}(X_{\text{train}}) \text{ and } \text{transform}(X_{\text{test}})$$
+      Otherwise, mean and standard deviation properties leak from the test set!
+    \item[Oversampling Test set:]
+      Testing on oversampled points rather than the true, physical galaxy catalog.
+    \item[MLP Convergence Warnings:]
+      If scikit-learn warns of non-convergence, increase \texttt{max\_iter} to $1000$ (as in Task 11) or decrease the learning rate.
+  \end{description}
+\end{frame}
+
+% Slide 32: Session 2 Summary \& Session 3 Preview
+\begin{frame}{Summary \& Session 3 Preview}
+  \begin{block}{What We Achieved Today}
+    \begin{itemize}
+      \item Solved dataset class imbalances safely using stratified splitting and oversampling.
+      \item Prevented data leakage to ensure models generalize to new telescope data.
+      \item Programmed a feed-forward MLP neural network to predict supernova sites.
+      \item Derived the Softmax logit gradient ($\frac{\partial \mathcal{L}}{\partial z_c} = P_c - y_c$) and regularized weight updates.
+      \item Used Permutation Feature Importance to extract physical rules from our black-box model.
+      \item Assembled our code into an OOP pipeline.
+    \end{itemize}
+  \end{block}
+  \begin{description}
+    \item[Homework:] Complete the code sections in \texttt{stellar\_trace\_assignment2.ipynb} (Tasks 10--12) and ensure all evaluation plots render cleanly.
+    \item[Session 3 Preview:] Next session, we will model supernova rate equations using MCMC, build a PyTorch PINN DTD convolved solver, and extract the power-law slope of white dwarf delay times.
+  \end{description}
+\end{frame}
+
+\end{document}
