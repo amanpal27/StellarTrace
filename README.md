@@ -7,10 +7,10 @@ Stellar Trace is a summer project offered by the **Astronomy Club** focusing on 
 ## 👥 The Team
 
 ### 🌟 Mentors
-*   **Aman Pal** (Lead Mentor & Pipeline Architect)
-*   **Preet Varu** (Statistical Modeling & MCMC Diagnostics)
-*   **Aric Tirkey** (PyTorch PINN Design & Optimization)
-*   **Ujjwal Prakash** (Streamlit WebGL Simulator & UX Lead)
+*   Aman Pal
+*   Preet Varu
+*   Aric Tirkey
+*   Ujjwal Prakash
 
 ### 🚀 Mentees
 *   Adit Bansal, Ankita Chatterjee, Aryan Trivedi, Chethana Kotla, Deeksha Badhan, Dhairya Garg, Gurmannat, Kanak, Kuldeep Turkar, Kushagra Rajput, Rajit Dhakad, Shriom Gupta, Sree Neha Reddy Gavva, Yash Kumar
