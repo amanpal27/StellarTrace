@@ -38,13 +38,12 @@ StellarTrace/
 │   ├── generate_notebooks.py      # Notebook generator part 1
 │   └── generate_notebooks_part2.py# Notebook generator part 2
 ├── slides/                        # LaTeX Beamer slide decks and tutorials
-│   ├── session1_tasks7_9.tex      # Session 1 slides (Observational selection)
-│   ├── session2_tasks10_12.tex    # Session 2 slides (ML Host classification)
-│   ├── session3_tasks13_15.tex    # Session 3 slides (MCMC & DTD solver)
-│   ├── session1_stats_tutorial.tex # Statistics foundations tutorial
-│   ├── neural_networks_tutorial.tex # Neural Networks tutorial
-│   ├── piml_tutorial.tex          # Physics-Informed ML tutorial
-│   └── mcmc_tutorial.tex          # MCMC tutorial
+│   ├── meet1_tasks7_9.tex         # Meet 1 slides (Observational selection)
+│   ├── meet1_stats_foundations.tex # Meet 1 statistics foundations tutorial
+│   ├── meet2_tasks10_12.tex       # Meet 2 slides (ML Host classification)
+│   ├── meet2_neural_networks.tex  # Meet 2 neural networks tutorial
+│   ├── meet3_tasks13_15.tex       # Meet 3 slides (Tasks 13--15 roadmap)
+│   └── meet3_bayesian_stats_and_pinn.tex # Comprehensive Bayesian Stats & PINN tutorial
 ├── quizzes/
 │   ├── stellar_trace_mentee_quiz.md      # Written academic test
 │   ├── stellar_trace_mentor_answer_key.md # Mentor evaluation key

@@ -19,7 +19,7 @@
 \setbeamercolor{alerted text}{fg=accent}
 
 \title{Stellar Trace: Physics-Informed Modeling \& Bayesian Inference}
-\subtitle{Session 3: Bayesian MCMC, PINN Convolutions, \& Delay Time Distributions (Tasks 13--15)}
+\subtitle{Meet 3: Bayesian MCMC, PINN Convolutions, \& Delay Time Distributions (Tasks 13--15)}
 \author{Astronomy Club}
 \date{\today}
 
@@ -27,21 +27,21 @@
 
 \maketitle
 
-% Slide 2: Session Series Roadmap
-\begin{frame}{Session Series Roadmap}
+% Slide 2: Meet Series Roadmap
+\begin{frame}{Meet Series Roadmap}
   \begin{block}{Phase 2 Curriculum Structure}
     Stellar Trace Phase 2 transitions from the volume-complete universe model of Milestone 1 to real data ingestion, classifier training, and physical model fitting:
   \end{block}
   \begin{description}
-    \item[Session 1:] \textbf{Telescopes \& Statistics (Tasks 7--9)}
+    \item[Meet 1:] \textbf{Telescopes \& Statistics (Tasks 7--9)}
       \begin{itemize}
         \item Selection effects, coordinate cross-matching, database querying, and 1D/2D K-S tests.
       \end{itemize}
-    \item[Session 2:] \textbf{Machine Learning \& Data Leakage (Tasks 10--12)}
+    \item[Meet 2:] \textbf{Machine Learning \& Data Leakage (Tasks 10--12)}
       \begin{itemize}
         \item Stratified splits, manual random oversampling, MLP classifiers, GridSearchCV, and Permutation Feature Importance.
       \end{itemize}
-    \item[Session 3 (Today):] \textbf{Bayesian MCMC \& PINN Convolutions (Tasks 13--15)}
+    \item[Meet 3 (Today):] \textbf{Bayesian MCMC \& PINN Convolutions (Tasks 13--15)}
       \begin{itemize}
         \item Task 13: Physics-Informed Supernova Rate Modeling.
         \item Task 14: Model Interpretability and Physical Comparison.
@@ -50,15 +50,23 @@
   \end{description}
 \end{frame}
 
-% Slide 3: Session 3 Objectives
-\begin{frame}{Session 3 Objectives}
-  By the end of this session, you will be able to:
+% Slide 3: Meet 3 Objectives (Part 1)
+\begin{frame}{Meet 3 Objectives (Part 1)}
+  By the end of this meet, you will be able to:
   \begin{enumerate}
     \item Define competing astrophysical models for supernova rates as functions of host galaxy properties.
     \item Derive the likelihood and Negative Log-Likelihood (NLL) functions for host galaxy observations.
     \item Solve for point-estimate physical parameters using classical Maximum Likelihood Estimation (MLE).
     \item Implement a Metropolis-Hastings Markov Chain Monte Carlo (MCMC) sampler to quantify parameter uncertainties and map degeneracies.
     \item Construct a Physics-Informed Neural Network (PINN) to recover physical parameters via gradient descent.
+  \end{enumerate}
+\end{frame}
+
+% Slide 4: Meet 3 Objectives (Part 2)
+\begin{frame}{Meet 3 Objectives (Part 2)}
+  By the end of this meet, you will also be able to:
+  \begin{enumerate}
+    \setcounter{enumi}{5}
     \item Validate rate models using 2-sample Kolmogorov-Smirnov (K-S) goodness-of-fit validation tests.
     \item Compare the interpretability of physically grounded parameters with black-box feature importances.
     \item Formulate and discretize integral convolutions of Star Formation History (SFH) with the Delay Time Distribution (DTD).
@@ -249,9 +257,9 @@
   \end{itemize}
 \end{frame}
 
-% Slide 17: Reconstructing $\gamma$ via PyTorch Optimization
-\begin{frame}{Reconstructing $\gamma$ via PyTorch Optimization}
-  We recover the power-law slope $\gamma$ from a sample of observed hosts by optimizing a PyTorch convolved rate solver:
+% Slide 17: Reconstructing $\gamma$ via PyTorch Optimization: The Solver
+\begin{frame}{Reconstructing $\gamma$ via PyTorch: The Solver}
+  We recover the power-law slope $\gamma$ from observed hosts by optimizing a PyTorch convolved rate solver:
   \begin{itemize}
     \item \textbf{Parameterization:} Define $\gamma$ as an exponential parameter to enforce physical boundaries: $\gamma = e^{\tilde{\gamma}}$.
     \item \textbf{PyTorch Solver:} Evaluates the vectorized numerical convolution across the training galaxies:
@@ -260,9 +268,18 @@
         \item Computes the DTD vector $\boldsymbol{\psi}(\gamma) = \tau^{-\gamma}$.
         \item Performs matrix multiplication to evaluate rates: $\mathbf{r} = \mathbf{S} \boldsymbol{\psi} \cdot \Delta t$.
       \end{enumerate}
+  \end{itemize}
+\end{frame}
+
+% Slide 18: Reconstructing $\gamma$ via PyTorch Optimization: The Loss
+\begin{frame}{Reconstructing $\gamma$ via PyTorch: The Loss}
+  To train the convolved solver, we optimize the network weights via gradient descent:
+  \begin{itemize}
     \item \textbf{Loss Function Optimization:} Minimizes the Negative Log-Likelihood:
       $$\mathcal{L} = -\sum_{i \in \text{hosts}} \ln R_i + N_{\text{hosts}} \ln \left( \sum_{j \in \text{all}} R_j \right)$$
-      using the Adam optimizer. The solver successfully recovers the true power-law slope $\gamma \approx 1.15$.
+      using the Adam optimizer.
+    \item \textbf{Backpropagation:} Gradients flow from the loss function through the numerical convolution layer back to $\tilde{\gamma}$ via PyTorch's autograd.
+    \item \textbf{Result:} The convolved solver successfully recovers the true power-law slope $\gamma \approx 1.15$.
   \end{itemize}
 \end{frame}
 
@@ -270,9 +287,9 @@
 \begin{frame}{Summary of Phase 2}
   \begin{block}{Key Milestones Completed}
     \begin{itemize}
-      \item **Session 1 (Tasks 7--9):** Applied observational selection filters (apparent magnitude cuts) to model Malmquist Bias, queried SDSS, and performed 1D/2D K-S tests.
-      \item **Session 2 (Tasks 10--12):** Resolved class imbalance without data leakage, trained MLP classifiers, and analyzed feature importances.
-      \item **Session 3 (Tasks 13--15):** Modeled physical supernova rate equations, mapped parameter uncertainties using MCMC, and reconstructed Delay Time Distributions via PyTorch convolved rate solvers.
+      \item **Meet 1 (Tasks 7--9):** Applied observational selection filters (apparent magnitude cuts) to model Malmquist Bias, queried SDSS, and performed 1D/2D K-S tests.
+      \item **Meet 2 (Tasks 10--12):** Resolved class imbalance without data leakage, trained MLP classifiers, and analyzed feature importances.
+      \item **Meet 3 (Tasks 13--15):** Modeled physical supernova rate equations, mapped parameter uncertainties using MCMC, and reconstructed Delay Time Distributions via PyTorch convolved rate solvers.
     \end{itemize}
   \end{block}
   \begin{exampleblock}{Astrophysical Conclusion}
