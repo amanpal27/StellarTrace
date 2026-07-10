@@ -34,3 +34,10 @@ desktop.ini
 *.njsproj
 *.sln
 *.swp
+
+# LaTeX
+*.aux
+*.log
+*.out
+*.toc
+*.synctex.gz

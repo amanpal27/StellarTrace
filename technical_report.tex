@@ -1,0 +1,191 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{geometry}
+\geometry{margin=1in}
+\usepackage{tikz}
+\usetikzlibrary{arrows,positioning,shapes.geometric}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=teal,
+    filecolor=blue,      
+    urlcolor=cyan,
+    pdftitle={Stellar Trace: Complete Technical Report},
+    pdfauthor={Aman Pal},
+    pdfpagemode=FullScreen,
+}
+
+\title{\textbf{Stellar Trace: A Comprehensive Guide to Astronomical Transient Modeling, Classifier Design, and Physics-Informed Machine Learning}}
+\author{\textbf{Aman Pal} \\ Lead Mentor \\ Astronomy Club}
+\date{Summer 2026}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Stellar Trace is a summer project offered by the \textbf{Astronomy Club} designed to study how the physical properties of galaxies (specifically Stellar Mass and Star Formation Rate) dictate the rates and types of supernova explosions. This report provides an in-depth, conceptually simple, yet mathematically precise explanation of the entire project pipeline. We cover the generation of a volume-complete synthetic universe (Milestone 1), observational selection filters, non-parametric statistical hypothesis testing (Meet 1), machine learning host classifiers (Meet 2), Bayesian Metropolis-Hastings parameter estimation, Physics-Informed Neural Networks (PINNs), and convolved Delay Time Distribution (DTD) solvers in PyTorch (Meet 3). Finally, we present a methodological audit verifying the scientific correctness of the entire implementation.
+\end{abstract}
+
+\newpage
+\tableofcontents
+\newpage
+
+---
+
+\section{Introduction and Project Scope}
+Supernovae represent the explosive deaths of stars and are among the most energetic events in the universe. They fall into two main physical categories:
+\begin{description}
+    \item[Core-Collapse Supernovae (CC-SNe):] The catastrophic collapse of short-lived, massive stars ($\ge 8 M_\odot$).
+    \item[Type Ia Supernovae (Ia-SNe):] Thermonuclear explosions of white dwarfs in binary systems, widely used as ``standard candles'' to measure cosmic expansion.
+\end{description}
+
+The properties of the galaxies that host these events—such as how many stars they have (Stellar Mass, $M_\star$) and how fast they are producing new stars (Star Formation Rate, SFR)—provide vital clues about the stars that exploded. 
+
+\textbf{Stellar Trace} builds an end-to-end computational pipeline to:
+\begin{enumerate}
+    \item Simulate a representative sample of galaxies.
+    \item Query and ingest real-world coordinate catalogs of supernova host galaxies.
+    \item Use machine learning to predict which galaxies host which supernova types.
+    \item Extract physical laws and rate constants using Physics-Informed models.
+\end{enumerate}
+
+---
+
+\section{Milestone 1: The Volume-Complete Universe}
+To study galaxies, we first build a representative synthetic catalog of $100,000$ galaxies, representing a ``volume-complete'' slice of our universe. We do this by sampling three fundamental physical relations:
+
+\subsection{The Schechter Mass Function}
+Galaxies do not have random sizes; small galaxies are extremely common, while massive galaxies are very rare. We model this size distribution using the **Schechter Mass Function**:
+$$\Phi(M_\star) dM_\star = \Phi_0 \left(\frac{M_\star}{M_c}\right)^\alpha e^{-M_\star / M_c} d\left(\frac{M_\star}{M_c}\right)$$
+\begin{itemize}
+    \item **$M_c$ (Characteristic Mass):** The cutoff size dividing small and large galaxies ($M_c \approx 10^{11} M_\odot$).
+    \item **$\alpha$ (Faint-end Slope):** Decides the abundance of dwarf galaxies ($\alpha \approx -1.2$).
+    \item \textbf{Concept:} For masses below $M_c$, the distribution follows a power-law (a straight line on a log plot). For masses above $M_c$, the abundance drops off exponentially, making ultra-massive galaxies virtually non-existent.
+\end{itemize}
+
+\subsection{The Star Formation Main Sequence (SFMS)}
+Active, star-forming galaxies show a tight correlation between their mass and their starbirth rate. We model this as a 2nd-degree polynomial curve in log-space:
+$$\log_{10}(\text{SFR}) = a \cdot (\log_{10} M_\star)^2 + b \cdot \log_{10} M_\star + c + \mathcal{N}(0, \sigma^2)$$
+where $\sigma \approx 0.3$ dex represents the natural physical scatter. This scatter simulates the realistic variety of active starbirth rates across galaxies.
+
+\subsection{Color Bimodality and Quenched Galaxies}
+Galaxies are divided into two distinct groups:
+\begin{enumerate}
+    \item \textbf{The Blue Cloud:} Active galaxies forming stars rapidly, rich in young, hot, blue stars.
+    \item \textbf{The Red Sequence:} Quenched, ``red and dead'' galaxies dominated by old, cool, red stars.
+\end{enumerate}
+We determine a galaxy's color $(g-r)$ based on its **Specific Star Formation Rate** ($\text{sSFR} = \text{SFR}/M_\star$), which measures the starbirth rate per unit mass. Galaxies with $\log_{10}(\text{sSFR}) < -11.0$ are classified as quenched and are shifted to the red sequence.
+
+---
+
+\section{Meet 1: Observational Selection \& Non-Parametric Statistics}
+
+\subsection{Malmquist Bias (Selection Effects)}
+Real telescopes cannot see everything. Because light dims with distance ($F \propto 1/d^2$), distant faint galaxies escape detection. This selection effect is called **Malmquist Bias**.
+*   We simulate this by placing our synthetic galaxies at random cosmological redshifts ($z \in [0.01, 0.5]$).
+*   We calculate their apparent magnitude $m_r$ (how bright they look from Earth) using their luminosity distance $D_L(z)$ in a flat $\Lambda$CDM cosmology.
+*   We apply a spectroscopic sensitivity limit ($m_r < 23.5$) representing the limit of the Sloan Digital Sky Survey (SDSS). This filters out the faint, low-mass galaxies at high distances, mimicking a real astronomical catalog.
+
+\subsection{Data Ingestion \& Coordinate Cross-Matching}
+We query real astronomical databases to compile catalogs of observed supernova hosts:
+*   **Core-Collapse Hosts:** Extracted from Sharma et al. 2024.
+*   **Type Ia Hosts:** Extracted from the SDSS DR17 Supernova Survey.
+We perform SQL queries to match the coordinates (Right Ascension and Declination) of the supernovae with their host galaxies, bypassing database firewalls using flattened queries.
+
+\subsection{1D K-S and A-D Statistical Testing}
+How do we prove that supernova host galaxies are physically different from the background population? We use non-parametric statistical tests:
+*   **Kolmogorov-Smirnov (K-S) Test:** Measures the maximum vertical distance ($D$) between the cumulative distributions (ECDFs) of two samples. It is highly sensitive to shifts in the center of distributions.
+*   **Anderson-Darling (A-D) Test:** Similar to the K-S test, but places more mathematical weight on the tails (extremes) of the distributions, which is useful for catching differences in very high-mass or low-mass regimes.
+If the resulting $p$-value is $< 0.05$, we reject the null hypothesis and confirm that supernova hosts have a distinct physical origin.
+
+\subsection{2D Kolmogorov-Smirnov Test}
+Since galaxies are defined by mass and SFR simultaneously, 1D tests are insufficient. We implement the **Fasano \& Franceschini (1987) 2D K-S test** on the 2D Mass-sSFR plane:
+*   Instead of checking a single coordinate, the algorithm splits the 2D plane into four quadrants (centered on each data point) and measures the difference in sample fractions in all quadrants.
+*   This proves that CC-SNe and Type Ia hosts occupy distinct, non-overlapping subspaces on the galaxy scaling plane.
+
+---
+
+\section{Meet 2: Machine Learning Classifier Design}
+
+\subsection{The Class Imbalance Problem}
+In our dataset, background galaxies are extremely common, while observed supernova hosts are rare (e.g., 150 background vs. 30 CC-SN vs. 20 Ia-SN). If trained directly on this imbalanced data, a classifier will optimize its accuracy by predicting that *every* galaxy is a background non-host, yielding a useless model.
+
+\subsection{Oversampling without Data Leakage}
+To resolve class imbalance, we use **Random Oversampling (ROS)** to duplicate minority class rows. 
+\begin{center}
+\color{red}\hrule\vspace{2mm}
+\textbf{Critical Methodological Rule: Split Before Oversampling!} \\
+\color{black}\vspace{1mm}
+You must always perform your train-test split \textbf{before} oversampling the minority classes. 
+If you oversample first and then split, identical duplicate rows will end up in both the training and validation sets. The neural network will memorize these training rows and evaluate them on validation, yielding a perfect but fake 100\% validation score (data leakage). Splitting first ensures that the validation set remains clean and unseen.
+\vspace{2mm}\color{red}\hrule\color{black}
+\end{center}
+
+\subsection{MLP Optimization \& GridSearchCV}
+We train a **Multi-Layer Perceptron (MLP)** neural network. We optimize its hyperparameters (number of hidden layers, ReLU vs. Tanh activations, and weight decay $\alpha$ to prevent overfitting) using **5-fold Cross-Validation** (`GridSearchCV`), ensuring robust and generalizable classification boundaries.
+
+\subsection{Permutation Feature Importance}
+To look inside the neural network ``black-box,'' we use **Permutation Importance**:
+1.  We shuffle the values of a single input column (e.g., Stellar Mass) in the validation set, keeping other columns intact.
+2.  We measure the drop in the model's F1 score.
+3.  If the F1 score collapses, that feature is highly important. If it remains unchanged, the model ignored it.
+This reveals that Stellar Mass and SFR are the network's two most critical parameters.
+
+---
+
+\section{Meet 3: Physics-Informed Rate Modeling \& Bayesian MCMC}
+
+\subsection{Astrophysical Rate Likelihood}
+In Task 13, we fit physical rate models directly to the data:
+*   $\text{Rate}_{\text{CC}} = \text{SFR}^\beta$ (Power-law of active star formation)
+*   $\text{Rate}_{\text{Ia}} = A \cdot M_{\star, 10} + B \cdot \text{SFR}$ (Prompt-delayed model)
+
+The probability of galaxy $i$ hosting a supernova is its rate weight: $P_i = R_i / \sum R_j$.
+To find the parameters, we minimize the Negative Log-Likelihood (NLL):
+$$\mathcal{L}(\theta) = -\sum_{i \in \text{obs}} \ln R_i(\theta) + N_{\text{obs}} \cdot \ln \left(\sum_{j \in \text{all}} R_j(\theta)\right)$$
+
+\subsection{Markov Chain Monte Carlo (MCMC)}
+To map the full posterior uncertainties and trade-offs (degeneracies) of parameters $A$ and $B$, we write a **Metropolis-Hastings sampler**:
+*   **The Analogy (Blind Climber in a Fog):** Imagine a blind climber trying to find a mountain peak. They take a step in a random direction. If it is higher, they move there. If it is lower, they might still move there with some probability based on the steepness.
+*   By recording the climber's coordinates over 6,000 steps, we get a list of samples. 
+*   **Diagnostics:** We discard the first 1,000 steps (burn-in) and thin the chain. Healthy mixing shows a horizontal ``fuzzy caterpillar'' trace plot. The corner plot reveals a diagonal degeneracy, exposing how $A$ and $B$ trade off against each other.
+
+\subsection{Physics-Informed Neural Networks (PINNs)}
+Rather than classical fitting, we define the rate parameters as neural network weights. 
+*   **Hard Positivity Constraints:** To prevent the parameters from ever becoming negative ($A, B, \beta > 0$), we parameterize their raw inputs and pass them through an exponential layer: $A = e^{\tilde{A}}, B = e^{\tilde{B}}, \beta = e^{\tilde{\beta}}$.
+*   The PyTorch model computes rates forward, evaluates the NLL loss, and propagates gradients back to the parameters via automatic differentiation (autograd).
+
+---
+
+\section{Meet 3: Delay Time Distribution (DTD) Reconstruction}
+
+\subsection{The Convolution Integral (The Soup Analogy)}
+In reality, Type Ia supernovae take time to explode (delay time $\tau$) after a starburst. The DTD follows a power law: $\Psi(\tau) \propto \tau^{-\gamma}$.
+The supernova rate today ($T$) is the convolution of historical Star Formation History (SFH) with the DTD:
+$$R_{\text{Ia}}(T) = \int_0^T \text{SFR}(T - \tau) \Psi(\tau) d\tau = \int_0^T \text{SFR}(T - \tau) \tau^{-\gamma} d\tau$$
+*   **The Analogy (Soup Cooking):** The flavor of a soup today (supernova rate today) is the sum of all ingredients (stars) thrown into the pot over history, each multiplied by how much they have cooked (exploded) by now.
+
+\subsection{PyTorch Convolution Solver}
+To recover the power-law slope $\gamma$ (merger model predicts $\gamma \approx 1.15$), we discretize the convolution over a cosmic time grid $\Delta t = 0.1\text{ Gyr}$:
+$$R_{\text{Ia}}(T) = \sum_{\tau_k \ge 0.1}^{T} \text{SFR}(T - \tau_k) \cdot \tau_k^{-\gamma} \cdot \Delta t$$
+We build a PyTorch `DTDConvolutionSolver` that performs this matrix convolution. Using Adam, it minimizes the NLL loss, propagates gradients back through the convolution layer, and successfully recovers the true parameter value $\gamma \approx 1.15$.
+
+---
+
+\section{Scientific and Methodological Audit}
+We performed a full audit on the codebase and notebooks to verify correctness:
+\begin{enumerate}
+    \item \textbf{Data Leakage Check:} Checked the code cells in Task 10. The \texttt{train\_test\_split} is executed \textbf{before} oversampling with \texttt{RandomOverSampler}. This methodology is correct.
+    \item \textbf{Statistical Tests Check:} Checked Task 9. The K-S and A-D tests are executed on raw 1D physical values (\texttt{log\_mstar}, \texttt{log\_sfr}) before oversampling, preserving statistical independence. The 2D K-S test uses the correct Fasano \& Franceschini quadrant search. This is mathematically correct.
+    \item \textbf{MCMC Implementation Check:} Checked Task 13. The NumPy sampler correctly evaluates flat priors and accepts/rejects steps using the log-likelihood differences. The trace and corner plots are correctly generated after discarding the burn-in phase. This is correct.
+    \item \textbf{PINN Architecture Check:} Checked Task 13 and Task 15. Enforcing non-negativity via \texttt{torch.exp} on parameters is robust and prevents gradient numerical errors. This is correct.
+\end{enumerate}
+\textbf{Conclusion:} The Stellar Trace codebase is scientifically and methodologically correct.
+
+\end{document}
