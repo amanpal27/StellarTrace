@@ -210,7 +210,7 @@ export default function App() {
       <section id="team" style={{ padding: '60px 5%', maxWidth: '1200px', margin: '0 auto' }}>
         <h2 style={{ fontSize: '2.25rem', fontWeight: 800, textAlign: 'center', marginBottom: '16px', color: '#fff' }}>Project Cohort & Collaboration Team</h2>
         <p style={{ color: '#94a3b8', fontSize: '0.95rem', textAlign: 'center', maxWidth: '650px', margin: '0 auto 40px auto', lineHeight: 1.6 }}>
-          Meet the research team of developers, analysts, and students who collaborated on the stellar tracing pipeline, hypothesis testing, and deep learning models.
+          Meet the team of students who collaborated on the stellar tracing pipeline, hypothesis testing, and deep learning models.
         </p>
         
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '16px' }}>
