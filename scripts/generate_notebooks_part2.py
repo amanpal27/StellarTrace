@@ -179,7 +179,7 @@ log_mtolr = log_mtolg - (mock_gr / 2.5)
 
 # Calculate absolute Mr and apparent mr magnitudes
 Mr_sun = 4.65
-# TODO: Calculate absolute magnitude Mr and apparent magnitude mr
+# Calculate absolute magnitude Mr and apparent magnitude mr below
 mock_Mr = ### FIX_ME_ABSOLUTE_MAGNITUDE ###
 mock_mr = ### FIX_ME_APPARENT_MAGNITUDE ###
 
@@ -204,7 +204,7 @@ try:
         'log_sfr': np.log10(np.clip(data[:, 1], 1e-6, None)),
         'redshift': data[:, 2]
     })
-    # TODO: Calculate specific star formation rate (sSFR)
+    # Calculate specific star formation rate (sSFR) here
     real_hosts['ssfr'] = ### FIX_ME_SSFR ###
     print(f"Successfully loaded {len(real_hosts)} real Core-Collapse SN hosts.")
 except Exception as e:
@@ -280,7 +280,7 @@ else:
 
 # Clean columns and calculate Specific Star Formation Rate (sSFR)
 ia_hosts.columns = [col.lower() for col in ia_hosts.columns]
-# TODO: Calculate specific star formation rate (sSFR)
+# Calculate specific star formation rate (sSFR) here
 ia_hosts['ssfr'] = ### FIX_ME_SSFR ###
 print(f"Successfully loaded {len(ia_hosts)} real Type Ia SN hosts directly from the SDSS database.")"""
 
@@ -508,7 +508,7 @@ df_ml = pd.concat([
 
 # 2. Perform stratified train/test split FIRST to prevent data leakage (validation contamination)
 from sklearn.model_selection import train_test_split
-# Hint: Use train_test_split with test_size=0.3 and stratify=df_ml['class']
+# Split df_ml into train and test sets (30% test size). Don't forget to stratify by class!
 df_train, df_test = ### FIX_ME_TRAIN_TEST_SPLIT ###
 
 # 3. Address Class Imbalance in the TRAINING set using Manual Random Oversampling
@@ -534,7 +534,7 @@ X = X_train # Reference variable for Task 12
 
 # 2. Standardise features
 scaler = StandardScaler()
-# Hint: Fit and transform on training data, only transform on test data
+# Fit the scaler on the training data and transform it, then apply the transform to the test data
 X_train_scaled = ### FIX_ME_FIT_TRANSFORM ###
 X_test_scaled = ### FIX_ME_TRANSFORM ###
 
@@ -589,7 +589,7 @@ plt.savefig('plots/task11_mlp_evaluation.png', dpi=300, bbox_inches='tight')
 plt.show()"""
 
 ex12_code_student = """# 1. Permutation Feature Importance Analysis for Model Interpretability
-# Hint: Use sklearn's permutation_importance on the test set
+# Evaluate feature importance using permutation_importance on the test set
 result = ### FIX_ME_PERMUTATION_IMPORTANCE ###
 sorted_idx = result.importances_mean.argsort()
 
@@ -1694,5 +1694,5 @@ solution_cells = [
 if __name__ == '__main__':
     os.makedirs('notebooks', exist_ok=True)
     create_notebook(assignment_cells, "notebooks/stellar_trace_assignment2.ipynb")
-    create_notebook(solution_cells, "notebooks/stellar_trace_solution2.ipynb")
+    # No longer generating solution2
     print("Phase 2 notebooks generated successfully!")
