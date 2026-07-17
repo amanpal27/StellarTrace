@@ -92,16 +92,59 @@ Navigate to the `notebooks/` folder to open the assignments or solutions.
 
 ---
 
-## 📝 Mentee Submission Guide
+## 📝 Mentee Submission Guide (For Beginners)
 
-Mentees should submit their completed assignments using the following workflow:
-1. **Fork** this repository to your personal GitHub account.
-2. Complete the code exercises in `stellar_trace_assignment1.ipynb` and `stellar_trace_assignment2.ipynb`.
-3. Copy your completed notebooks into your dedicated folder inside `submissions/` (e.g., `submissions/Aryan_Trivedi/stellar_trace_assignment1.ipynb`).
-4. Commit your changes and push them to your fork:
+If you have never used Git or GitHub before, don't worry! Follow these step-by-step instructions carefully to submit your assignments.
+
+### 1. Set Up GitHub & Git
+If you haven't already:
+1. **Create an account** on [GitHub](https://github.com/).
+2. **Install Git** on your computer from [git-scm.com](https://git-scm.com/).
+3. **Configure Git in your terminal:** Open your terminal (Command Prompt, PowerShell, or Git Bash) and run these commands to tell Git who you are:
    ```bash
-   git add submissions/Aryan_Trivedi/
-   git commit -m "Submit assignment - Aryan Trivedi"
+   git config --global user.name "Your Name"
+   git config --global user.email "your.email@example.com"
+   ```
+
+### 2. Fork the Repository
+A "Fork" is your own personal copy of the StellarTrace project.
+1. Scroll to the top of this page on GitHub.
+2. Click the **Fork** button (top right corner).
+3. Confirm by clicking **Create fork**. This will create a copy under your account (`https://github.com/YourUsername/StellarTrace`).
+
+### 3. Clone Your Fork to Your Computer
+Now, download your fork to your computer:
+1. On your forked repository page, click the green **<> Code** button and copy the HTTPS URL.
+2. Open your terminal and run:
+   ```bash
+   git clone https://github.com/YourUsername/StellarTrace.git
+   cd StellarTrace
+   ```
+
+### 4. Complete Your Assignments
+1. Complete the code exercises in `notebooks/stellar_trace_assignment1.ipynb` and `notebooks/stellar_trace_assignment2.ipynb`.
+2. Copy your completed notebooks into your dedicated folder inside `submissions/` (e.g., `submissions/Aryan_Trivedi/stellar_trace_assignment1.ipynb`). If your folder doesn't exist, create it!
+
+### 5. Save and Push Your Changes
+Once you are done, save your work back to GitHub:
+1. **Add your changes** to the "staging area":
+   ```bash
+   git add submissions/Your_Name/
+   ```
+2. **Commit (save)** your changes with a descriptive message:
+   ```bash
+   git commit -m "Submit assignment - Your Name"
+   ```
+3. **Push (upload)** the changes to your fork on GitHub:
+   ```bash
    git push origin main
    ```
-5. Open a **Pull Request** comparing your fork's submission folder against the main repository.
+   *(If prompted, log in with your GitHub account credentials or Personal Access Token in the browser window that pops up).*
+
+### 6. Open a Pull Request (PR)
+A Pull Request tells the mentors that your code is ready to be reviewed!
+1. Go to your forked repository page on GitHub.
+2. You should see a banner saying "This branch is 1 commit ahead of amanpal27:main". Click **Contribute**, then **Open pull request**.
+3. Add a brief title (e.g., "Assignment Submission - Your Name") and click **Create pull request**.
+
+Congratulations! You have successfully submitted your work! 🎉

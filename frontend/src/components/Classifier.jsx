@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { modelData } from '../assets/model_data';
 
 export default function Classifier() {
   const [mass, setMass] = useState(10.1);
@@ -6,8 +7,13 @@ export default function Classifier() {
   const [isQuenched, setIsQuenched] = useState(false);
   const [probs, setProbs] = useState({ bg: 0.8, cc: 0.1, ia: 0.1 });
   
+  // Hardcoded coefficients for the 2nd-degree polynomial SFMS fit (from Milestone 1)
+  const SFMS_BETA0 = -4.385;
+  const SFMS_BETA1 = 0.812;
+  const SFMS_BETA2 = -0.027;
+
   // Calculate star formation properties based on physical inputs
-  const sfmsSfr = -0.05 * Math.pow(mass, 2) + 1.25 * mass - 6.8;
+  const sfmsSfr = SFMS_BETA0 + SFMS_BETA1 * mass + SFMS_BETA2 * (mass * mass);
   const sfr = isQuenched ? sfmsSfr - 2.8 : sfmsSfr;
   const ssfr = sfr - mass;
   
@@ -15,33 +21,63 @@ export default function Classifier() {
   const grColor = Math.min(1.0, Math.max(-0.1, 0.5 - 0.25 * (ssfr + 10.0)));
   
   useEffect(() => {
-    // Neural network approximation model
-    // 1. Inputs: redshift, mass, sfr, ssfr
-    // 2. Class 0: Background, Class 1: CC-SN (active star forming), Class 2: Ia-SN (mass + prompt)
-    
-    // Core collapse SN rate scales strongly with active star formation
-    const r_cc = Math.exp(sfr * 1.15) * (isQuenched ? 0.01 : 1.0);
-    
-    // Type Ia SN rate scales with mass (delayed) and star formation (prompt)
-    const mass10 = Math.pow(10, mass - 10);
-    const r_ia = 0.55 * mass10 + 0.65 * Math.pow(10, sfr);
-    
-    // Background non-hosts
-    const r_bg = 2.0; // flat threshold
-    
-    // Softmax probabilities
-    const sum = Math.exp(r_bg) + Math.exp(r_cc) + Math.exp(r_ia);
-    const p_bg = Math.exp(r_bg) / sum;
-    const p_cc = Math.exp(r_cc) / sum;
-    const p_ia = Math.exp(r_ia) / sum;
+    // MLP Feed-forward classification pass
+    const X = [redshift, mass, sfr, ssfr];
+
+    // Standard Scaling: (x - mean) / scale
+    const X_scaled = X.map(
+      (val, idx) => (val - modelData.scalerMean[idx]) / modelData.scalerScale[idx]
+    );
+
+    // Layer 1 (ReLU)
+    const h1 = [];
+    const weights1 = modelData.coefs[0];
+    const bias1 = modelData.intercepts[0];
+    for (let j = 0; j < weights1[0].length; j++) {
+      let sum = bias1[j];
+      for (let i = 0; i < X_scaled.length; i++) {
+        sum += X_scaled[i] * weights1[i][j];
+      }
+      h1.push(Math.max(0, sum));
+    }
+
+    // Layer 2 (ReLU)
+    const h2 = [];
+    const weights2 = modelData.coefs[1];
+    const bias2 = modelData.intercepts[1];
+    for (let j = 0; j < weights2[0].length; j++) {
+      let sum = bias2[j];
+      for (let i = 0; i < h1.length; i++) {
+        sum += h1[i] * weights2[i][j];
+      }
+      h2.push(Math.max(0, sum));
+    }
+
+    // Layer 3 (Logits)
+    const logits = [];
+    const weights3 = modelData.coefs[2];
+    const bias3 = modelData.intercepts[2];
+    for (let j = 0; j < weights3[0].length; j++) {
+      let sum = bias3[j];
+      for (let i = 0; i < h2.length; i++) {
+        sum += h2[i] * weights3[i][j];
+      }
+      logits.push(sum);
+    }
+
+    // Softmax Activation
+    const maxLogit = Math.max(...logits);
+    const exps = logits.map((l) => Math.exp(l - maxLogit));
+    const sumExps = exps.reduce((a, b) => a + b, 0);
+    const probsOut = exps.map((e) => e / sumExps);
     
     // Normalized probabilities
     setProbs({
-      bg: p_bg,
-      cc: p_cc,
-      ia: p_ia
+      bg: probsOut[0],
+      cc: probsOut[1],
+      ia: probsOut[2]
     });
-  }, [mass, redshift, isQuenched]);
+  }, [mass, redshift, isQuenched, sfr, ssfr]);
 
   return (
     <div className="glass-panel" style={{ padding: '24px' }}>
