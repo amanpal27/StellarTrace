@@ -508,7 +508,8 @@ df_ml = pd.concat([
 
 # 2. Perform stratified train/test split FIRST to prevent data leakage (validation contamination)
 from sklearn.model_selection import train_test_split
-df_train, df_test = train_test_split(df_ml, test_size=0.3, random_state=42, stratify=df_ml['class'])
+# Hint: Use train_test_split with test_size=0.3 and stratify=df_ml['class']
+df_train, df_test = ### FIX_ME_TRAIN_TEST_SPLIT ###
 
 # 3. Address Class Imbalance in the TRAINING set using Manual Random Oversampling
 def oversample_dataset(df, class_column):
@@ -533,8 +534,9 @@ X = X_train # Reference variable for Task 12
 
 # 2. Standardise features
 scaler = StandardScaler()
-X_train_scaled = scaler.fit_transform(X_train)
-X_test_scaled = scaler.transform(X_test)
+# Hint: Fit and transform on training data, only transform on test data
+X_train_scaled = ### FIX_ME_FIT_TRANSFORM ###
+X_test_scaled = ### FIX_ME_TRANSFORM ###
 
 # 3. GridSearchCV hyperparameter tuning for multiclass MLP classifier
 param_grid = {
@@ -587,7 +589,8 @@ plt.savefig('plots/task11_mlp_evaluation.png', dpi=300, bbox_inches='tight')
 plt.show()"""
 
 ex12_code_student = """# 1. Permutation Feature Importance Analysis for Model Interpretability
-result = permutation_importance(best_mlp, X_test_scaled, y_test, n_repeats=10, random_state=42)
+# Hint: Use sklearn's permutation_importance on the test set
+result = ### FIX_ME_PERMUTATION_IMPORTANCE ###
 sorted_idx = result.importances_mean.argsort()
 
 plt.figure(figsize=(8, 4), dpi=120)
