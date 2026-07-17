@@ -179,8 +179,9 @@ log_mtolr = log_mtolg - (mock_gr / 2.5)
 
 # Calculate absolute Mr and apparent mr magnitudes
 Mr_sun = 4.65
-mock_Mr = Mr_sun - 2.5 * (df_mock['log_mstar'] - log_mtolr)
-mock_mr = mock_Mr + 5 * np.log10(mock_dl) + 25
+# TODO: Calculate absolute magnitude Mr and apparent magnitude mr
+mock_Mr = ### FIX_ME_ABSOLUTE_MAGNITUDE ###
+mock_mr = ### FIX_ME_APPARENT_MAGNITUDE ###
 
 # Filter the mock catalog to keep detected galaxies (mr < 23.5)
 detected_mask = mock_mr < 23.5
@@ -203,7 +204,8 @@ try:
         'log_sfr': np.log10(np.clip(data[:, 1], 1e-6, None)),
         'redshift': data[:, 2]
     })
-    real_hosts['ssfr'] = real_hosts['log_sfr'] - real_hosts['log_mstar']
+    # TODO: Calculate specific star formation rate (sSFR)
+    real_hosts['ssfr'] = ### FIX_ME_SSFR ###
     print(f"Successfully loaded {len(real_hosts)} real Core-Collapse SN hosts.")
 except Exception as e:
     raise RuntimeError(f"Failed to load Core-Collapse SN host data: {e}")
@@ -278,7 +280,8 @@ else:
 
 # Clean columns and calculate Specific Star Formation Rate (sSFR)
 ia_hosts.columns = [col.lower() for col in ia_hosts.columns]
-ia_hosts['ssfr'] = ia_hosts['log_sfr'] - ia_hosts['log_mstar']
+# TODO: Calculate specific star formation rate (sSFR)
+ia_hosts['ssfr'] = ### FIX_ME_SSFR ###
 print(f"Successfully loaded {len(ia_hosts)} real Type Ia SN hosts directly from the SDSS database.")"""
 
 ex7_code_solution = ex7_code_student
@@ -376,12 +379,18 @@ which performs the entire sequence of operations internally and returns a dictio
 $$\{\text{'Background'}: P_0, \text{'CC-SN'}: P_1, \text{'Ia-SN'}: P_2\}$$
 """
 
-ex9_code_student = """# 1. Run 1D K-S and A-D tests on stellar mass
-ks_cc_stat, ks_cc_p = ks_2samp(real_hosts['log_mstar'].values, df_detected['log_mstar'].values)
-ks_ia_stat, ks_ia_p = ks_2samp(ia_hosts['log_mstar'].values, df_detected['log_mstar'].values)
+ex9_code_student = """import warnings
 
-ad_cc_res = anderson_ksamp([real_hosts['log_mstar'].values, df_detected['log_mstar'].values])
-ad_ia_res = anderson_ksamp([ia_hosts['log_mstar'].values, df_detected['log_mstar'].values])
+# 1. Run 1D K-S and A-D tests on stellar mass
+# Hint: Use scipy.stats.ks_2samp and anderson_ksamp on real_hosts vs df_detected log_mstar
+
+ks_cc_stat, ks_cc_p = ### FIX_ME_KS_CC ###
+ks_ia_stat, ks_ia_p = ### FIX_ME_KS_IA ###
+
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    ad_cc_res = ### FIX_ME_AD_CC ###
+    ad_ia_res = ### FIX_ME_AD_IA ###
 
 # 2. Implement the 2D Kolmogorov-Smirnov Test (Fasano & Franceschini 1987)
 def ks_2d(x1, y1, x2, y2, n_eval=300):
@@ -399,16 +408,16 @@ def ks_2d(x1, y1, x2, y2, n_eval=300):
     for x, y in zip(x_eval, y_eval):
         # Sample 1 quadrant fractions
         # Hint: Count fractions of points where (x1 >= x) & (y1 >= y), etc.
-        q1_1 = np.sum((x1 >= x) & (y1 >= y)) / n1
-        q2_1 = np.sum((x1 < x) & (y1 >= y)) / n1
-        q3_1 = np.sum((x1 < x) & (y1 < y)) / n1
-        q4_1 = np.sum((x1 >= x) & (y1 < y)) / n1
+        q1_1 = ### FIX_ME ###
+        q2_1 = ### FIX_ME ###
+        q3_1 = ### FIX_ME ###
+        q4_1 = ### FIX_ME ###
         
         # Sample 2 quadrant fractions
-        q1_2 = np.sum((x2 >= x) & (y2 >= y)) / n2
-        q2_2 = np.sum((x2 < x) & (y2 >= y)) / n2
-        q3_2 = np.sum((x2 < x) & (y2 < y)) / n2
-        q4_2 = np.sum((x2 >= x) & (y2 < y)) / n2
+        q1_2 = ### FIX_ME ###
+        q2_2 = ### FIX_ME ###
+        q3_2 = ### FIX_ME ###
+        q4_2 = ### FIX_ME ###
         
         # Calculate maximum absolute difference across the 4 quadrants
         d1 = abs(q1_1 - q1_2)
@@ -419,8 +428,8 @@ def ks_2d(x1, y1, x2, y2, n_eval=300):
         d_max = max(d_max, d1, d2, d3, d4)
         
     # Calculate Peacock/Fasano-Franceschini significance
-    r1 = np.corrcoef(x1, y1)[0, 1] if n1 > 1 else 0.0
-    r2 = np.corrcoef(x2, y2)[0, 1] if n2 > 1 else 0.0
+    r1 = np.nan_to_num(np.corrcoef(x1, y1)[0, 1]) if n1 > 1 else 0.0
+    r2 = np.nan_to_num(np.corrcoef(x2, y2)[0, 1]) if n2 > 1 else 0.0
     r = (r1 + r2) / 2.0
     r = np.clip(r, -0.999, 0.999)
     
@@ -450,7 +459,36 @@ print(f"  - 2D K-S Test (Mass-sSFR) p-value: {ks2d_cc_p:.4e}")
 print(f"Type Ia SN Hosts vs Background:")
 print(f"  - 1D K-S Test (Mass) p-value: {ks_ia_p:.4e}")
 print(f"  - 1D A-D Test (Mass) p-value: {ad_ia_res.significance_level:.4e}")
-print(f"  - 2D K-S Test (Mass-sSFR) p-value: {ks2d_ia_p:.4e}")"""
+print(f"  - 2D K-S Test (Mass-sSFR) p-value: {ks2d_ia_p:.4e}")
+
+# 3. Plot Empirical Cumulative Distribution Functions (eCDFs) for K-S visualization
+def plot_ecdf(ax, data, label, color):
+    # TODO: Sort data and calculate cumulative probability for eCDF
+    x = ### FIX_ME_SORT_DATA ###
+    y = ### FIX_ME_CALC_ECDF ###
+    ax.plot(x, y, label=label, color=color, linewidth=2)
+
+fig, axs = plt.subplots(1, 2, figsize=(12, 5), dpi=120)
+
+# TODO: Plot eCDFs for CC-SN vs Background on axs[0]
+plot_ecdf(axs[0], df_detected['log_mstar'].values, 'Background', '#bdc3c7')
+### FIX_ME: plot real_hosts on axs[0] ###
+axs[0].set_title(f'CC-SN Host Mass eCDF (KS-stat={ks_cc_stat:.3f})')
+axs[0].set_xlabel('log(Mstar / Msun)')
+axs[0].legend()
+
+# TODO: Plot eCDFs for Ia-SN vs Background on axs[1]
+plot_ecdf(axs[1], df_detected['log_mstar'].values, 'Background', '#bdc3c7')
+### FIX_ME: plot ia_hosts on axs[1] ###
+axs[1].set_title(f'Ia-SN Host Mass eCDF (KS-stat={ks_ia_stat:.3f})')
+axs[1].set_xlabel('log(Mstar / Msun)')
+axs[1].legend()
+
+plt.tight_layout()
+os.makedirs('plots', exist_ok=True)
+plt.savefig('plots/task9_ks_ecdf.png', dpi=300, bbox_inches='tight')
+plt.show()
+"""
 
 ex10_code_student = """# 1. Compile the multiclass machine learning dataset
 real_hosts['class'] = 1
@@ -474,18 +512,10 @@ df_train, df_test = train_test_split(df_ml, test_size=0.3, random_state=42, stra
 
 # 3. Address Class Imbalance in the TRAINING set using Manual Random Oversampling
 def oversample_dataset(df, class_column):
-    class_counts = df[class_column].value_counts()
-    target_size = class_counts.max()
-    
-    balanced_dfs = []
-    for cls in df[class_column].unique():
-        df_cls = df[df[class_column] == cls]
-        if len(df_cls) < target_size:
-            df_cls_oversampled = df_cls.sample(n=target_size, replace=True, random_state=42)
-            balanced_dfs.append(df_cls_oversampled)
-        else:
-            balanced_dfs.append(df_cls)
-    return pd.concat(balanced_dfs, ignore_index=True)
+    # TODO: Implement manual random oversampling to balance class sizes
+    # Hint: Find the maximum class size, then sample smaller classes with replacement (replace=True)
+    ### FIX_ME ###
+    pass
 
 df_train_balanced = oversample_dataset(df_train, 'class')
 
@@ -508,9 +538,10 @@ X_test_scaled = scaler.transform(X_test)
 
 # 3. GridSearchCV hyperparameter tuning for multiclass MLP classifier
 param_grid = {
-    'hidden_layer_sizes': [(32, 16), (64, 32)],
-    'activation': ['relu', 'tanh'],
-    'alpha': [0.01, 0.1]
+    # TODO: Define a grid of hyperparameters for the MLPClassifier
+    'hidden_layer_sizes': ### FIX_ME_HIDDEN_LAYERS ###,
+    'activation': ### FIX_ME_ACTIVATION ###,
+    'alpha': ### FIX_ME_ALPHA ###
 }
 
 mlp = MLPClassifier(max_iter=1000, random_state=42)
@@ -634,12 +665,16 @@ except NameError:
     p_dwarf = engine.predict_host_probabilities(log_mstar=9.0, redshift=0.05)
     print(f"StellarTraceEngine test check passed! (Dwarf host probs: {p_dwarf})")"""
 
-ex9_code_solution = """# 1. Run 1D K-S and A-D tests on stellar mass
+ex9_code_solution = """import warnings
+
+# 1. Run 1D K-S and A-D tests on stellar mass
 ks_cc_stat, ks_cc_p = ks_2samp(real_hosts['log_mstar'].values, df_detected['log_mstar'].values)
 ks_ia_stat, ks_ia_p = ks_2samp(ia_hosts['log_mstar'].values, df_detected['log_mstar'].values)
 
-ad_cc_res = anderson_ksamp([real_hosts['log_mstar'].values, df_detected['log_mstar'].values])
-ad_ia_res = anderson_ksamp([ia_hosts['log_mstar'].values, df_detected['log_mstar'].values])
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    ad_cc_res = anderson_ksamp([real_hosts['log_mstar'].values, df_detected['log_mstar'].values])
+    ad_ia_res = anderson_ksamp([ia_hosts['log_mstar'].values, df_detected['log_mstar'].values])
 
 # 2. Implement the 2D Kolmogorov-Smirnov Test (Fasano & Franceschini 1987)
 def ks_2d(x1, y1, x2, y2, n_eval=300):
@@ -671,8 +706,8 @@ def ks_2d(x1, y1, x2, y2, n_eval=300):
         
         d_max = max(d_max, d1, d2, d3, d4)
         
-    r1 = np.corrcoef(x1, y1)[0, 1] if n1 > 1 else 0.0
-    r2 = np.corrcoef(x2, y2)[0, 1] if n2 > 1 else 0.0
+    r1 = np.nan_to_num(np.corrcoef(x1, y1)[0, 1]) if n1 > 1 else 0.0
+    r2 = np.nan_to_num(np.corrcoef(x2, y2)[0, 1]) if n2 > 1 else 0.0
     r = (r1 + r2) / 2.0
     r = np.clip(r, -0.999, 0.999)
     
@@ -701,6 +736,31 @@ print(f"Type Ia SN Hosts vs Background:")
 print(f"  - 1D K-S Test (Mass) p-value: {ks_ia_p:.4e}")
 print(f"  - 1D A-D Test (Mass) p-value: {ad_ia_res.significance_level:.4e}")
 print(f"  - 2D K-S Test (Mass-sSFR) p-value: {ks2d_ia_p:.4e}")
+
+# 3. Plot Empirical Cumulative Distribution Functions (eCDFs) for K-S visualization
+def plot_ecdf(ax, data, label, color):
+    x = np.sort(data)
+    y = np.arange(1, len(data) + 1) / len(data)
+    ax.plot(x, y, label=label, color=color, linewidth=2)
+
+fig, axs = plt.subplots(1, 2, figsize=(12, 5), dpi=120)
+
+plot_ecdf(axs[0], df_detected['log_mstar'].values, 'Background', '#bdc3c7')
+plot_ecdf(axs[0], real_hosts['log_mstar'].values, 'CC-SN Hosts', '#1abc9c')
+axs[0].set_title(f'CC-SN Host Mass eCDF (KS-stat={ks_cc_stat:.3f})')
+axs[0].set_xlabel('log(Mstar / Msun)')
+axs[0].legend()
+
+plot_ecdf(axs[1], df_detected['log_mstar'].values, 'Background', '#bdc3c7')
+plot_ecdf(axs[1], ia_hosts['log_mstar'].values, 'Ia-SN Hosts', '#3498db')
+axs[1].set_title(f'Ia-SN Host Mass eCDF (KS-stat={ks_ia_stat:.3f})')
+axs[1].set_xlabel('log(Mstar / Msun)')
+axs[1].legend()
+
+plt.tight_layout()
+os.makedirs('plots', exist_ok=True)
+plt.savefig('plots/task9_ks_ecdf.png', dpi=300, bbox_inches='tight')
+plt.show()
 
 # Plot galaxies in the Mass-sSFR plane
 plt.figure(figsize=(10, 6), dpi=120)
@@ -944,20 +1004,22 @@ all_mass_10 = 10**(df_detected['log_mstar'].values - 10)
 
 # 2. Fit parameters using classical MLE (scipy)
 def cc_nll(beta):
-    rates_hosts = cc_sfr ** beta
-    rates_all = all_sfr ** beta
+    # TODO: Implement the negative log-likelihood for the Core-Collapse rate model
+    rates_hosts = ### FIX_ME_CC_RATES_HOSTS ###
+    rates_all = ### FIX_ME_CC_RATES_ALL ###
     rates_hosts = np.clip(rates_hosts, 1e-10, None)
-    return -np.sum(np.log(rates_hosts)) + len(real_hosts) * np.log(np.sum(rates_all))
+    return ### FIX_ME_CC_NLL ###
 
 res_cc = minimize(cc_nll, x0=[1.0], bounds=[(0.1, 3.0)], method='L-BFGS-B')
 beta_mle = res_cc.x[0]
 
 def ia_nll(theta):
     A, B = theta
-    rates_hosts = A * ia_mass_10 + B * ia_sfr
-    rates_all = A * all_mass_10 + B * all_sfr
+    # TODO: Implement the negative log-likelihood for the Type Ia rate model
+    rates_hosts = ### FIX_ME_IA_RATES_HOSTS ###
+    rates_all = ### FIX_ME_IA_RATES_ALL ###
     rates_hosts = np.clip(rates_hosts, 1e-10, None)
-    return -np.sum(np.log(rates_hosts)) + len(ia_hosts) * np.log(np.sum(rates_all))
+    return ### FIX_ME_IA_NLL ###
 
 res_ia = minimize(ia_nll, x0=[1.0, 1.0], bounds=[(0.0, 5.0), (0.0, 5.0)], method='L-BFGS-B')
 A_mle, B_mle = res_ia.x
@@ -1432,11 +1494,12 @@ class DTDConvolutionSolver(nn.Module):
         t_sf = ages - self.tau_grid
         
         # Calculate SFR: SFR(t_sf) = t_sf * exp(-t_sf / taus_sf) where t_sf >= 0, else 0.0
-        sfr = torch.where(t_sf >= 0, t_sf * torch.exp(-t_sf / taus_sf), torch.tensor(0.0))
+        # Hint: use torch.where and torch.exp
+        sfr = ### FIX_ME_SFR_TENSOR ###
         
         # Calculate DTD: Psi(tau) = tau^(-gamma) for tau >= 0.1, else 0.0
         safe_tau = torch.clamp(self.tau_grid, min=0.01)
-        psi = torch.where(self.tau_grid >= 0.1, safe_tau ** (-gamma), torch.tensor(0.0))
+        psi = ### FIX_ME_PSI_TENSOR ###
         
         # Compute numerical convolution integral
         rates = torch.sum(sfr * psi, dim=1) * 0.1
