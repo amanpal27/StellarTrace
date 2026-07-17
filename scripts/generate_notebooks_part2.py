@@ -1691,6 +1691,8 @@ solution_cells = [
 ]
 
 # Create notebooks on disk
-create_notebook(assignment_cells, "stellar_trace_assignment2.ipynb")
-create_notebook(solution_cells, "stellar_trace_solution2.ipynb")
-print("Phase 2 notebooks generated successfully!")
+if __name__ == '__main__':
+    os.makedirs('notebooks', exist_ok=True)
+    create_notebook(assignment_cells, "notebooks/stellar_trace_assignment2.ipynb")
+    create_notebook(solution_cells, "notebooks/stellar_trace_solution2.ipynb")
+    print("Phase 2 notebooks generated successfully!")
