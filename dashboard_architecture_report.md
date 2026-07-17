@@ -1,6 +1,6 @@
-# Beginner's Guide: Building and Deploying the Stellar Trace Dashboard
+# Beginner's Guide: Building and Deploying the Stellar Trace Website
 
-Welcome! Even if you have zero knowledge of web development, this guide will walk you through building and deploying the Stellar Trace web dashboard from scratch. We will build two parts: a beautiful website (Frontend) and an interactive data dashboard (Streamlit), and then deploy the website online for the world to see!
+Welcome! Even if you have zero knowledge of web development, this guide will walk you through building and deploying the Stellar Trace website from scratch. We will build a beautiful website (Frontend) and then deploy it online for the world to see!
 
 ---
 
@@ -11,10 +11,7 @@ Before we write any code, we need to install a few tools on your computer.
 1. **Install Node.js**: This is required to run our website. 
    - Go to [nodejs.org](https://nodejs.org/) and download the "LTS" (Long Term Support) version. 
    - Run the installer and keep clicking "Next" until it's finished.
-2. **Install Python**: This is required to run our data dashboard.
-   - Go to [python.org](https://www.python.org/) and download the latest version.
-   - **Crucial step**: When the installer opens, make sure to check the box that says "Add Python to PATH" before clicking "Install".
-3. **Install VS Code**: This is the text editor where we will write our code.
+2. **Install VS Code**: This is the text editor where we will write our code.
    - Go to [code.visualstudio.com](https://code.visualstudio.com/) and download/install it.
 
 ---
@@ -86,42 +83,3 @@ Now let's put your website on the internet so anyone can see it! We'll use a fre
    - "Want to modify these settings?" -> Press **N** (No)
 4. Wait a minute or two. Vercel will give you a "Production URL". Click that link, and you will see your website live on the internet!
 
----
-
-## Part 4: Building the Interactive ML Dashboard (Streamlit)
-
-The second part of Stellar Trace is a data dashboard built with Python.
-
-### Step 1: Set up the Python Folder
-1. Open a new terminal window.
-2. Create a new folder for the dashboard and move into it:
-   ```bash
-   mkdir dashboard
-   cd dashboard
-   ```
-
-### Step 2: Install Required Python Libraries
-1. Type the following command to install the tools we need:
-   ```bash
-   pip install streamlit pandas numpy scikit-learn
-   ```
-
-### Step 3: Write the Dashboard Code
-1. Open this `dashboard` folder in VS Code.
-2. Create a new file named `app.py`.
-3. Open `app.py` and write your Python code using Streamlit. A simple example:
-   ```python
-   import streamlit as st
-   
-   st.title("Stellar Trace Dashboard")
-   st.write("Welcome to the data side!")
-   ```
-
-### Step 4: Run the Dashboard Locally
-1. In your terminal, type:
-   ```bash
-   streamlit run app.py
-   ```
-2. Your browser will automatically open and show your interactive data dashboard!
-
-*(Note: While the React website is perfectly deployed on Vercel, Python Streamlit apps are usually deployed on Streamlit Community Cloud instead, as Vercel is best for static frontend websites.)*
