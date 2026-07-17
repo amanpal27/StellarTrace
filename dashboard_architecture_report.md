@@ -1,49 +1,127 @@
-# Stellar Trace Web Dashboard Architecture
+# Beginner's Guide: Building and Deploying the Stellar Trace Dashboard
 
-The Stellar Trace web interface is a comprehensive platform built to showcase our astrophysics research project. It is composed of two distinct components designed for different use cases: a modern, static frontend landing application and a heavy-duty Python-based machine learning dashboard.
-
----
-
-## 1. Frontend Application (React + Vite)
-
-The frontend is a Single Page Application (SPA) located in the `frontend/` directory. It serves as the primary landing site, presenting the project's curriculum, team members, and interactive visualizations.
-
-### Technology Stack
-- **Build Tool**: Vite (Lightning fast HMR and optimized production builds)
-- **Framework**: React 18
-- **Styling**: Inline styles and CSS classes featuring modern glassmorphism UI, gradients, and dark mode aesthetic (`#090d16` background).
-- **Deployment**: Configured for static hosting on Vercel.
-
-### Core Features
-- **Project Showcase (`App.jsx`)**: The main entry point featuring sticky navigation, a hero section, and responsive grids for the Curriculum and Cohort (Team) sections.
-- **Scientific Diagnostics Gallery**: Displays high-quality matplotlib diagnostic plots from the Jupyter Notebook milestones, utilizing an interactive modal overlay (zoom-in) for detailed viewing.
-- **Interactive Simulators**: The React app houses a tabbed interface for embedding client-side physics simulators:
-  - 🌌 3D Galaxy Physics Simulator (`GalaxyCanvas`)
-  - 🎲 MCMC Markov Walk (`McmcSim`)
-  - 🧠 Host Classifier (`Classifier`)
-  - 📐 Convolved DTD Solver (`DtdSim`)
+Welcome! Even if you have zero knowledge of web development, this guide will walk you through building and deploying the Stellar Trace web dashboard from scratch. We will build two parts: a beautiful website (Frontend) and an interactive data dashboard (Streamlit), and then deploy the website online for the world to see!
 
 ---
 
-## 2. Interactive ML Dashboard (Streamlit)
+## Part 1: Setting up your Computer (The Prerequisites)
 
-Located in the `dashboard/` directory, the Python-based dashboard provides a direct interface to the trained machine learning models and astrophysics hypothesis tests without requiring users to run Jupyter Notebooks.
+Before we write any code, we need to install a few tools on your computer.
 
-### Technology Stack
-- **Framework**: Streamlit
-- **Data & Math**: Pandas, NumPy, Scikit-learn
-- **Visualizations**: Plotly (Interactive charts)
-- **UI Customization**: Custom CSS injection (Outfit & JetBrains Mono fonts, glassmorphism cards).
-
-### Core Features
-- **Machine Learning Inference**: Uses `@st.cache_resource` to load pre-trained models (e.g., standard scalers, polynomial features, regression, and MLP classifiers) for real-time predictions.
-- **Host Probability Engine**: Users can input features like stellar mass and redshift, and the dashboard runs the prediction pipeline to classify the galaxy as Background, CC-SN Host, or Ia-SN Host.
-- **Interactive Quizzes**: Presents educational quizzes using interactive Streamlit widgets to test mentee knowledge.
+1. **Install Node.js**: This is required to run our website. 
+   - Go to [nodejs.org](https://nodejs.org/) and download the "LTS" (Long Term Support) version. 
+   - Run the installer and keep clicking "Next" until it's finished.
+2. **Install Python**: This is required to run our data dashboard.
+   - Go to [python.org](https://www.python.org/) and download the latest version.
+   - **Crucial step**: When the installer opens, make sure to check the box that says "Add Python to PATH" before clicking "Install".
+3. **Install VS Code**: This is the text editor where we will write our code.
+   - Go to [code.visualstudio.com](https://code.visualstudio.com/) and download/install it.
 
 ---
 
-## Deployment Strategy
+## Part 2: Building the Website (Frontend)
 
-The two applications are decoupled for optimal deployment:
-1. **Frontend Landing Page (Vercel)**: Deployed to Vercel via the `vercel deploy --prod` CLI. It builds the static React bundle using `npm run build` and serves it on a global CDN. This guarantees fast initial load times.
-2. **Streamlit Dashboard (Cloud Hosting)**: The `app.py` script requires a persistent Python runtime (with heavy dependencies like `scikit-learn` and `streamlit`). It is deployed independently (typically on Streamlit Community Cloud or a dedicated container service) rather than Vercel, as Vercel is designed for serverless functions, not stateful WebSockets.
+We will build the website using a popular tool called React.
+
+### Step 1: Create the Project
+1. Open your computer's Terminal (Command Prompt on Windows, Terminal on Mac).
+2. Type the following command and press Enter:
+   ```bash
+   npm create vite@latest frontend -- --template react
+   ```
+3. Move into your new project folder by typing:
+   ```bash
+   cd frontend
+   ```
+4. Install the necessary files by typing:
+   ```bash
+   npm install
+   ```
+
+### Step 2: Run the Website Locally
+To see your website working on your own computer:
+1. In the terminal, type:
+   ```bash
+   npm run dev
+   ```
+2. Open your web browser (like Chrome or Safari) and go to the link shown in your terminal (usually `http://localhost:5173`). You'll see a starter website!
+
+### Step 3: Add the Stellar Trace Code
+1. Open the `frontend` folder in VS Code.
+2. Open the `src/App.jsx` file. This is the main file for your website. 
+3. You can replace the code in this file with your own text, images, and layout to match the Stellar Trace design. 
+
+---
+
+## Part 3: Deploying the Website to Vercel
+
+Now let's put your website on the internet so anyone can see it! We'll use a free service called Vercel.
+
+### Step 1: Create a Vercel Account
+1. Go to [vercel.com](https://vercel.com/) and sign up for a free account.
+
+### Step 2: Install Vercel on your computer
+1. Open your terminal (make sure you are inside the `frontend` folder).
+2. Install the Vercel tool by typing:
+   ```bash
+   npm i -g vercel
+   ```
+
+### Step 3: Deploy!
+1. Log in to Vercel from your terminal by typing:
+   ```bash
+   vercel login
+   ```
+   Follow the instructions to log in using your browser.
+2. Once logged in, type the deployment command:
+   ```bash
+   vercel --prod
+   ```
+3. It will ask you a few setup questions:
+   - "Set up and deploy?" -> Press **Y** (Yes)
+   - "Which scope?" -> Press Enter
+   - "Link to existing project?" -> Press **N** (No)
+   - "What's your project's name?" -> Press Enter (or type a name)
+   - "In which directory is your code located?" -> Press Enter
+   - "Want to modify these settings?" -> Press **N** (No)
+4. Wait a minute or two. Vercel will give you a "Production URL". Click that link, and you will see your website live on the internet!
+
+---
+
+## Part 4: Building the Interactive ML Dashboard (Streamlit)
+
+The second part of Stellar Trace is a data dashboard built with Python.
+
+### Step 1: Set up the Python Folder
+1. Open a new terminal window.
+2. Create a new folder for the dashboard and move into it:
+   ```bash
+   mkdir dashboard
+   cd dashboard
+   ```
+
+### Step 2: Install Required Python Libraries
+1. Type the following command to install the tools we need:
+   ```bash
+   pip install streamlit pandas numpy scikit-learn
+   ```
+
+### Step 3: Write the Dashboard Code
+1. Open this `dashboard` folder in VS Code.
+2. Create a new file named `app.py`.
+3. Open `app.py` and write your Python code using Streamlit. A simple example:
+   ```python
+   import streamlit as st
+   
+   st.title("Stellar Trace Dashboard")
+   st.write("Welcome to the data side!")
+   ```
+
+### Step 4: Run the Dashboard Locally
+1. In your terminal, type:
+   ```bash
+   streamlit run app.py
+   ```
+2. Your browser will automatically open and show your interactive data dashboard!
+
+*(Note: While the React website is perfectly deployed on Vercel, Python Streamlit apps are usually deployed on Streamlit Community Cloud instead, as Vercel is best for static frontend websites.)*
